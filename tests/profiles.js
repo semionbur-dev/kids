@@ -43,7 +43,7 @@ const U = (p, f, a) => p.evaluate(f, a);
   /* 4. выбор профиля картинкой, переключение, общий PIN */
   await U(p, () => { const u = window.__umniki; u.FAM().kids.pop(); u.useKid('k1'); u.save(); });
   console.log('v2 before reload:', await U(p, () => (localStorage.getItem('umniki.v2') || '').length + ' ' + window.__umniki.FAM().kids.map(k => k.id)));
-  await p.reload(); await p.waitForTimeout(300);
+  await p.waitForTimeout(300); await p.reload(); await p.waitForTimeout(300);
   ok(await U(p, () => document.querySelectorAll('.whoc').length === 2), 'после перезапуска с двумя детьми — экран «Кто занимается?» ' + await U(p, () => document.querySelectorAll('.whoc').length + ' ' + window.__umniki.FAM().kids.map(k => k.id) + ' ' + document.body.innerText.slice(0, 60).replace(/\n/g, '/')));
   await p.tap('.whoc:nth-child(2)'); st = await U(p, () => { const S = window.__umniki.S(); return { n: S.name, hero: !!document.querySelector('.hero'), pin: S.parent.pin }; });
   ok(st.n === 'Миша' && st.hero && st.pin === 'x', 'тап по картинке открывает профиль Миши; PIN общий');

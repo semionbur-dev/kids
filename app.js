@@ -203,7 +203,9 @@ const skillPool = (skill, lv) => { const all = GENS.filter(g => Skills.SKILL_OF[
 /* ======================== Маршрутизация и отрисовка ======================== */
 let R = 'home', L = null, RES = null;
 const root = $('#app');
-const mascot = (cls = '', bounce = false, k = S) => `<div class="mascot ${cls}${bounce ? ' bounce' : ''}"><span class="hat">${k.hat}</span><span class="pet">${k.pet}</span></div>`;
+/* персонаж: эмодзи-заглушка, которую avatar.js заменяет на 3D-картинку (o.live — оживший, o.pose — idle/happy/sad/wave) */
+const mascot = (cls = '', bounce = false, k = S, o = {}) => `<div class="mascot avatar ${cls}${bounce ? ' bounce' : ''}" data-av="${k.pet}" data-hat="${k.hat || ''}"${o.live ? ' data-live="1"' : ''}${o.pose ? ` data-pose="${o.pose}"` : ''}><span class="hat">${k.hat || ''}</span><span class="pet">${k.pet}</span></div>`;
+const petBtn = e => `<span class="avatar" data-av="${e}"><span class="pet">${e}</span></span>`;
 
 function topBar() {
   return `<div class="top">
@@ -230,13 +232,13 @@ let ob = { pet: '🐱', age: 0 };
 const ageTxt = n => `${n} ${tt('лет', 'гадоў', `let`, `y.o.`)}`;
 const ageChips = (cur, act) => `<div class="chips" style="justify-content:center">${Skills.AGES.map(n => `<button class="chip2${cur === n ? ' on' : ''}" data-a="${act}" data-n="${n}">${n}</button>`).join('')}</div>`;
 function rOnboard() {
-  root.innerHTML = `<div class="onb"><div style="font-size:70px">🎓</div><h1>${tt('Умники', 'Разумнікі', `Chytráci`, `Smart Kids`)}</h1>
+  root.innerHTML = `<div class="onb">${mascot('big', false, { pet: ob.pet, hat: '🎓' }, { live: 1, pose: 'wave' })}<h1>${tt('Умники', 'Разумнікі', `Chytráci`, `Smart Kids`)}</h1>
     <div class="pets lang">${Object.entries(LANG_NAMES).map(([c, n]) => `<button class="${S.lang === c ? 'on' : ''}" data-a="lang" data-l="${c}">${n}</button>`).join('')}</div>
     <p>${tt('Математика и логика в игре! Как тебя зовут?', 'Матэматыка і логіка ў гульні! Як цябе клічуць?', `Matematika a logika hrou! Jak se jmenuješ?`, `Maths and logic as a game! What is your name?`)}</p>
     <input id="nm" aria-label="${tt('Твоё имя', 'Тваё імя', `Tvoje jméno`, `Your name`)}" maxlength="14" placeholder="${tt('Твоё имя', 'Тваё імя', `Tvoje jméno`, `Your name`)}" autocomplete="off" value="${esc(S.name)}">
     <p>${tt('Сколько тебе лет?', 'Колькі табе гадоў?', `Kolik ti je let?`, `How old are you?`)}</p>${ageChips(ob.age, 'obage')}
     <p>${tt('Выбери себе друга:', 'Абяры сабе сябра:', `Vyber si kamaráda:`, `Choose a friend:`)}</p>
-    <div class="pets">${['🐱', '🐶', '🐰'].map(e => `<button class="${ob.pet === e ? 'on' : ''}" data-a="obpet" data-e="${e}">${e}</button>`).join('')}</div>
+    <div class="pets">${['🐱', '🐶', '🐰'].map(e => `<button class="${ob.pet === e ? 'on' : ''}" data-a="obpet" data-e="${e}" aria-label="${e}">${petBtn(e)}</button>`).join('')}</div>
     <button class="btn ghost sm" data-a="login">🔑 ${tt('У меня уже есть профиль — войти через Google', 'У мяне ўжо ёсць профіль — увайсці праз Google', `Už mám profil – přihlásit se přes Google`, `I already have a profile – sign in with Google`)}</button>
     <div class="rs" style="text-align:center">${tt('Родителям: PIN и лимит времени — в профиле, «Родительская зона».', 'Бацькам: PIN і ліміт часу — у профілі, «Бацькоўская зона».', `Rodičům: PIN a limit času najdete v profilu, „Rodičovská zóna“.`, `For parents: PIN and time limit are in the profile, “Parents’ zone”.`)}</div>
     <div style="margin-top:auto"><button class="btn grn" data-a="obstart">${tt('Поехали!', 'Паехалі!', `Jdeme na to!`, `Let's go!`)}</button></div></div>`;
@@ -317,7 +319,7 @@ function rKid() {
     <input id="kn" class="kin" aria-label="${tt('Имя', 'Імя', `Jméno`, `Name`)}" maxlength="14" placeholder="${tt('Имя или псевдоним', 'Імя або псеўданім', `Jméno nebo přezdívka`, `Name or nickname`)}" autocomplete="off" value="${esc(KF.name)}">
     <div class="sect">${tt('Возраст', 'Узрост', `Věk`, `Age`)}</div>${ageChips(KF.age, 'kage')}
     <div class="rs" style="margin:6px 2px 0">${tt('От возраста зависят стартовый уровень и набор заданий: до 8 лет — задания почти без чтения.', 'Ад узросту залежаць стартавы ўзровень і набор заданняў: да 8 гадоў — заданні амаль без чытання.', `Od věku se odvíjí startovní úroveň a výběr úloh: do 8 let jsou úlohy téměř bez čtení.`, `Age sets the starting level and the task mix: under 8, tasks need almost no reading.`)}</div>
-    ${isNew ? `<div class="sect">${tt('Картинка-аватар', 'Карцінка-аватар', `Obrázek-avatar`, `Picture avatar`)}</div><div class="pets">${['🐱', '🐶', '🐰', '🦊', '🐼', '🐸'].map(e => `<button class="${KF.pet === e ? 'on' : ''}" data-a="kpet" data-e="${e}"${taken.has(e) ? ' style="opacity:.5"' : ''}>${e}</button>`).join('')}</div>
+    ${isNew ? `<div class="sect">${tt('Картинка-аватар', 'Карцінка-аватар', `Obrázek-avatar`, `Picture avatar`)}</div><div class="pets">${['🐱', '🐶', '🐰', '🦊', '🐼', '🐸'].map(e => `<button class="${KF.pet === e ? 'on' : ''}" data-a="kpet" data-e="${e}" aria-label="${e}"${taken.has(e) ? ' style="opacity:.5"' : ''}>${petBtn(e)}</button>`).join('')}</div>
       <div class="rs" style="margin:6px 2px 0">${tt('По этой картинке ребёнок находит свой профиль. Выберите разные картинки.', 'Па гэтай карцінцы дзіця знаходзіць свой профіль. Абярыце розныя карцінкі.', `Podle obrázku dítě najde svůj profil. Vyberte každému jiný.`, `The child finds their profile by this picture. Pick a different one for each child.`)}</div>` : ''}
     <div style="height:14px"></div><button class="btn grn" data-a="ksave">${tt('Сохранить', 'Захаваць', `Uložit`, `Save`)}</button>
     ${!isNew && FAM.kids.length > 1 ? `<div style="height:10px"></div><button class="btn ghost sm" data-a="kdel" style="color:#a82828">🗑 ${tt('Удалить профиль', 'Выдаліць профіль', `Smazat profil`, `Delete profile`)}</button>` : ''}</div>` + tabs('');
@@ -356,7 +358,7 @@ function rHome() {
     return `<button class="skc" style="--c:${SK[k].color}" data-a="skill" data-s="${k}"><div class="ico">${SK[k].icon}</div><b>${P(SK[k].name)}</b><small>${P(SK[k].sub)}</small>
       <div class="pips" aria-label="${tt('Уровень', 'Узровень', `Úroveň`, `Level`)} ${sk.lvl}">${[1, 2, 3, 4, 5].map(i => `<i class="${i <= sk.lvl ? 'on' : ''}"></i>`).join('')}</div></button>`; }).join('');
   root.innerHTML = topBar() + `<div class="page">
-    <div class="hero tap" data-a="profile" role="button">${mascot()}<div class="bubble">${tt('Привет', 'Прывітанне', `Ahoj`, `Hello`)}, <b>${esc(S.name)}</b>!<br><span style="font-weight:700;font-size:14px">${phrase}</span>
+    <div class="hero tap" data-a="profile" role="button">${mascot('', false, S, { live: 1, pose: 'wave' })}<div class="bubble">${tt('Привет', 'Прывітанне', `Ahoj`, `Hello`)}, <b>${esc(S.name)}</b>!<br><span style="font-weight:700;font-size:14px">${phrase}</span>
       <div class="bar xp xpbar"><i style="width:${pr}%"></i></div><div class="small"><span>${tt('Уровень', 'Узровень', `Úroveň`, `Level`)} ${L0}</span><span>${S.xp - a} / ${b - a} XP</span></div></div><span class="chev">›</span></div>
     ${routeCard}
     <div class="sect">${tt('Карта навыков', 'Карта навыкаў', `Mapa dovedností`, `Skills map`)}</div>
@@ -368,12 +370,12 @@ function rHome() {
 function rShop() {
   const card = (it, kind) => {
     const own = kind === 'pet' ? S.pets.includes(it.e) : S.hats.includes(it.e), on = kind === 'pet' ? S.pet === it.e : S.hat === it.e;
-    return `<div class="card${on ? ' on' : ''}${own ? '' : ' lock'}"><div class="em">${it.e}</div><div class="ttl">${P(it.n)}</div>` +
+    return `<div class="card${on ? ' on' : ''}${own ? '' : ' lock'}"><div class="em avatar" data-av="${kind === 'pet' ? it.e : S.pet}" data-hat="${kind === 'hat' ? it.e : ''}"><span class="pet">${it.e}</span></div><div class="ttl">${P(it.n)}</div>` +
       (own ? `<button class="btn ${on ? 'ghost' : 'grn'}" data-a="equip" data-k="${kind}" data-e="${it.e}">${on ? (kind === 'hat' ? tt('Снять', 'Зняць', `Sundat`, `Take off`) : tt('Выбран', 'Абраны', `Vybráno`, `Selected`)) : tt('Выбрать', 'Абраць', `Vybrat`, `Select`)}</button>`
         : `<button class="btn yel" data-a="buy" data-k="${kind}" data-e="${it.e}">🪙 ${it.p}</button>`) + '</div>';
   };
   root.innerHTML = topBar() + `<div class="page"><div class="h1">${tt('Магазин', 'Крама', `Obchod`, `Shop`)}</div>
-    <div class="hero">${mascot()}<div class="bubble">${tt('Зарабатывай монеты на занятиях и открывай новых друзей и наряды!', 'Зарабляй манеты на занятках і адкрывай новых сяброў і ўборы!', `Získávej mince při cvičení a odemykej nové kamarády a oblečení!`, `Earn coins while practising and unlock new friends and outfits!`)}</div></div>
+    <div class="hero">${mascot('', false, S, { pose: 'wave' })}<div class="bubble">${tt('Зарабатывай монеты на занятиях и открывай новых друзей и наряды!', 'Зарабляй манеты на занятках і адкрывай новых сяброў і ўборы!', `Získávej mince při cvičení a odemykej nové kamarády a oblečení!`, `Earn coins while practising and unlock new friends and outfits!`)}</div></div>
     <div class="sect">${tt('Друзья', 'Сябры', `Kamarádi`, `Friends`)}</div><div class="grid">${PETS.map(p => card(p, 'pet')).join('')}</div>
     <div class="sect">${tt('Шляпы', 'Галаўныя ўборы', `Klobouky`, `Hats`)}</div><div class="grid">${HATS.map(h => card(h, 'hat')).join('')}</div></div>` + tabs('shop');
 }
@@ -394,7 +396,7 @@ function rProfile() {
   const L0 = lvl(S.xp), a = lvlStart(L0), b = lvlStart(L0 + 1), pr = Math.min(100, Math.round((S.xp - a) / (b - a) * 100));
   root.innerHTML = topBar() + `<div class="page">
     <button class="back" data-a="goto" data-t="home">← ${tt('Назад', 'Назад', `Zpět`, `Back`)}</button>
-    <div class="prof big">${mascot('')}<div class="pinfo"><div class="nm">${esc(S.name)}</div><div class="lv">${tt('Уровень', 'Узровень', `Úroveň`, `Level`)} ${L0} · ${S.xp} XP</div>
+    <div class="prof big">${mascot('', false, S, { live: 1 })}<div class="pinfo"><div class="nm">${esc(S.name)}</div><div class="lv">${tt('Уровень', 'Узровень', `Úroveň`, `Level`)} ${L0} · ${S.xp} XP</div>
       <div class="bar xp"><i style="width:${pr}%"></i></div></div></div>
     <div class="row2"><button class="btn ghost sm" data-a="goto" data-t="shop">🎁 ${tt('Сменить друга и шляпу', 'Змяніць сябра і галаўны ўбор', `Změnit kamaráda a klobouk`, `Change friend and hat`)}</button></div>
     <div class="row2"><button class="btn ghost sm" data-a="sound">${S.sound ? tt('🔊 Звук включён', '🔊 Гук уключаны', `🔊 Zvuk zapnutý`, `🔊 Sound on`) : tt('🔇 Звук выключен', '🔇 Гук выключаны', `🔇 Zvuk vypnutý`, `🔇 Sound off`)}</button></div>
@@ -657,8 +659,8 @@ function rBoard(q) {
   let foot;
   if (L.answered) {
     foot = L.ok
-      ? `<div class="fb ok"><div class="msg">${mascot('sm', true)}<div><b>${pick(tt(['Верно!', 'Отлично!', 'Супер!', 'Блестяще!'], ['Правільна!', 'Выдатна!', 'Суперпа!', 'Бліскуча!'], ['Správně!', 'Výborně!', 'Super!', 'Skvělé!'], ['Correct!', 'Great job!', 'Super!', 'Brilliant!']))}</b>${esc(v.explain || '')}</div></div><button class="btn grn" data-a="next">${tt('Дальше', 'Далей', `Dál`, `Next`)}</button></div>`
-      : `<div class="fb no"><div class="msg">${mascot('sm')}<div><b>${tt('Ничего, бывает!', 'Нічога, бывае!', `Nic se neděje!`, `It happens!`)}</b>${tt('Правильный ход показан на доске.', 'Правільны ход паказаны на дошцы.', `Správný tah je ukázán na šachovnici.`, `The correct move is shown on the board.`)}<br>${esc(v.explain || '')}</div></div><button class="btn red" data-a="next">${tt('Понятно', 'Зразумела', `Jasné`, `Got it`)}</button></div>`;
+      ? `<div class="fb ok"><div class="msg">${mascot('sm', true, S, { pose: 'happy' })}<div><b>${pick(tt(['Верно!', 'Отлично!', 'Супер!', 'Блестяще!'], ['Правільна!', 'Выдатна!', 'Суперпа!', 'Бліскуча!'], ['Správně!', 'Výborně!', 'Super!', 'Skvělé!'], ['Correct!', 'Great job!', 'Super!', 'Brilliant!']))}</b>${esc(v.explain || '')}</div></div><button class="btn grn" data-a="next">${tt('Дальше', 'Далей', `Dál`, `Next`)}</button></div>`
+      : `<div class="fb no"><div class="msg">${mascot('sm', false, S, { pose: 'sad' })}<div><b>${tt('Ничего, бывает!', 'Нічога, бывае!', `Nic se neděje!`, `It happens!`)}</b>${tt('Правильный ход показан на доске.', 'Правільны ход паказаны на дошцы.', `Správný tah je ukázán na šachovnici.`, `The correct move is shown on the board.`)}<br>${esc(v.explain || '')}</div></div><button class="btn red" data-a="next">${tt('Понятно', 'Зразумела', `Jasné`, `Got it`)}</button></div>`;
   } else foot = `<div class="lfoot"><button class="btn ghost" data-a="hint" style="flex:1">💡 ${HINT_PRICE}🪙</button>${globeBtn(q)}</div>`;
   root.innerHTML = `<div class="lesson">${lHead()}<div class="qwrap">${qTag(q)}${langChip(q)}<div class="qtext">${v.text}</div>${L.hint ? `<div class="hintbox">💡 ${esc(v.hint)}</div>` : ''}${board}</div>${foot}</div>`;
 }
@@ -692,8 +694,8 @@ function rLesson() {
   if (L.answered) {
     const shown = q.type === 'choice' ? v.choices[q.choices.findIndex(c => c.v === q.answer)].h : q.answer;
     foot = L.ok
-      ? `<div class="fb ok"><div class="msg">${mascot('sm', true)}<div><b>${pick(tt(['Верно!', 'Отлично!', 'Супер!', 'Так держать!', 'Блестяще!', 'Молодец!'], ['Правільна!', 'Выдатна!', 'Суперпа!', 'Так трымаць!', 'Бліскуча!', 'Малайчына!'], ['Správně!', 'Výborně!', 'Super!', 'Jen tak dál!', 'Skvělé!', 'Šikovně!'], ['Correct!', 'Great job!', 'Super!', 'Keep it up!', 'Brilliant!', 'Well done!']))}${L.combo >= 3 ? `<span class="combo">🔥 ${L.combo} ${tt('подряд', 'запар', `v řadě`, `in a row`)}</span>` : ''}</b>${esc(v.explain || '')}</div></div><button class="btn grn" data-a="next">${tt('Дальше', 'Далей', `Dál`, `Next`)}</button></div>`
-      : `<div class="fb no"><div class="msg">${mascot('sm')}<div><b>${pick(tt(['Почти!', 'Не страшно!', 'Ничего, бывает!', 'В следующий раз получится!'], ['Амаль!', 'Не страшна!', 'Нічога, бывае!', 'У наступны раз атрымаецца!'], ['Skoro!', 'To nevadí!', 'Nic se neděje!', 'Příště to vyjde!'], ['Almost!', "Don't worry!", 'It happens!', 'You will get it next time!']))}</b>${tt('Правильный ответ', 'Правільны адказ', `Správná odpověď`, `Correct answer`)}: <b style="display:inline">${shown}</b><br>${esc(v.explain || '')}</div></div><button class="btn red" data-a="next">${tt('Понятно', 'Зразумела', `Jasné`, `Got it`)}</button></div>`;
+      ? `<div class="fb ok"><div class="msg">${mascot('sm', true, S, { pose: 'happy' })}<div><b>${pick(tt(['Верно!', 'Отлично!', 'Супер!', 'Так держать!', 'Блестяще!', 'Молодец!'], ['Правільна!', 'Выдатна!', 'Суперпа!', 'Так трымаць!', 'Бліскуча!', 'Малайчына!'], ['Správně!', 'Výborně!', 'Super!', 'Jen tak dál!', 'Skvělé!', 'Šikovně!'], ['Correct!', 'Great job!', 'Super!', 'Keep it up!', 'Brilliant!', 'Well done!']))}${L.combo >= 3 ? `<span class="combo">🔥 ${L.combo} ${tt('подряд', 'запар', `v řadě`, `in a row`)}</span>` : ''}</b>${esc(v.explain || '')}</div></div><button class="btn grn" data-a="next">${tt('Дальше', 'Далей', `Dál`, `Next`)}</button></div>`
+      : `<div class="fb no"><div class="msg">${mascot('sm', false, S, { pose: 'sad' })}<div><b>${pick(tt(['Почти!', 'Не страшно!', 'Ничего, бывает!', 'В следующий раз получится!'], ['Амаль!', 'Не страшна!', 'Нічога, бывае!', 'У наступны раз атрымаецца!'], ['Skoro!', 'To nevadí!', 'Nic se neděje!', 'Příště to vyjde!'], ['Almost!', "Don't worry!", 'It happens!', 'You will get it next time!']))}</b>${tt('Правильный ответ', 'Правільны адказ', `Správná odpověď`, `Correct answer`)}: <b style="display:inline">${shown}</b><br>${esc(v.explain || '')}</div></div><button class="btn red" data-a="next">${tt('Понятно', 'Зразумела', `Jasné`, `Got it`)}</button></div>`;
   } else {
     const can = q.type === 'choice' ? L.sel !== null : L.input !== '';
     foot = `<div class="lfoot"><button class="btn ghost" data-a="hint">💡 ${HINT_PRICE}🪙</button>${globeBtn(q)}<button class="btn grn" data-a="check" ${can ? '' : 'disabled'}>${tt('Проверить', 'Праверыць', `Zkontrolovat`, `Check`)}</button></div>`;
@@ -767,14 +769,14 @@ function rResult() {
     const t = r.tot;
     root.innerHTML = `<div class="result"><div style="font-size:70px">🌙</div><h1>${tt('На сегодня всё!', 'На сёння ўсё!', `Pro dnešek hotovo!`, `That's all for today!`)}</h1>
       <div class="sub">${tt('Отличная работа! Завтра — новый маршрут.', 'Выдатная праца! Заўтра — новы маршрут.', `Skvělá práce! Zítra tě čeká nová trasa.`, `Great work! A new route is waiting tomorrow.`)}</div>
-      <div class="mascot big" style="margin:14px auto"><span class="hat">${S.hat}</span><span class="pet">${S.pet}</span></div>
+      ${mascot('big', false, S, { live: 1, pose: 'happy' })}
       <div class="rew"><div><b>+${t.xp}</b>XP</div><div><b>+${t.coins}</b>${tt('монет', 'манет', `mincí`, `coins`)} 🪙</div><div><b>${t.ok}/${t.total}</b>${tt('верно', 'правільна', `správně`, `correct`)} ✓</div></div>
       ${r.events.map(e => `<div class="evt">${e.i} ${e.t}</div>`).join('')}
       <div class="acts"><button class="btn grn" data-a="home">${tt('На главный экран', 'На галоўны экран', `Na hlavní obrazovku`, `Home`)}</button></div></div>`;
     return;
   }
   const title = r.stars === 3 ? tt('Идеально!', 'Ідэальна!', `Perfektní!`, `Perfect!`) : r.route ? tt('Мини-игра пройдена!', 'Міні-гульня пройдзена!', `Minihra splněna!`, `Mini-game complete!`) : tt('Занятие завершено!', 'Занятак завершаны!', `Trénink dokončen!`, `Session complete!`);
-  root.innerHTML = `<div class="result"><div style="font-size:70px">${r.stars === 3 ? '🏆' : '🎉'}</div><h1>${title}</h1>
+  root.innerHTML = `<div class="result">${mascot('big', false, S, { live: 1, pose: 'happy' })}<h1>${title}</h1>
     <div class="sub">${tt(`Верно с первого раза: ${r.right} из ${r.total}`, `Правільна з першага разу: ${r.right} з ${r.total}`, `Správně na první pokus: ${r.right} z ${r.total}`, `Right first time: ${r.right} of ${r.total}`)}</div>
     <div class="stars">${[1, 2, 3].map(i => `<span class="${i <= r.stars ? 'on' : ''}">⭐</span>`).join('')}</div>
     <div class="rew"><div><b>+${r.xp}</b>XP</div><div><b>+${r.coins}</b>${tt('монет', 'манет', `mincí`, `coins`)} 🪙</div><div><b>${k.icon} ${S.skills[r.skill].lvl}</b>${tt('уровень навыка', 'узровень навыку', `úroveň dovednosti`, `skill level`)}</div></div>
@@ -1105,6 +1107,7 @@ document.addEventListener('keydown', e => {
 });
 
 /* ======================== Запуск ======================== */
+if (window.Avatar) { let hq = 0; new MutationObserver(() => { cancelAnimationFrame(hq); hq = requestAnimationFrame(() => Avatar.hydrate(document)); }).observe(root, { childList: true }); }
 load(); phrase = newPhrase(); if (FAM.kids.length > 1) R = 'who'; render();
 if (cloudFlag() && FAM.consent.cloud) fbInit().catch(() => {});
 try { if (window.top !== window.self) document.documentElement.classList.add('embed'); } catch (e) { document.documentElement.classList.add('embed'); }
@@ -1113,5 +1116,5 @@ up.setAttribute('aria-label', tt('Наверх', 'Угару', `Nahoru`, `Up`));
 up.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
 window.addEventListener('scroll', () => { up.hidden = !(window.scrollY > 400 && ['home', 'shop', 'awards'].includes(R)); }, { passive: true });
 if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(() => {});
-window.__umniki = { exportData, cloudErase, glossify, FAM: () => FAM, useKid, mergeFam, norm, setFam, famJSON, GENS, S: () => S, L: () => L, A, buildSet, skillPool, sigOf, Chess, mergeStates, defState, clone, SK, availSkills, render, save, setR: v => { R = v; }, unlockParent: () => { parentOK = true; }, clearPinLock: () => { pinLockUntil = 0; pinFails = 0; }, limitLeft };
+window.__umniki = { exportData, Avatar: window.Avatar, cloudErase, glossify, FAM: () => FAM, useKid, mergeFam, norm, setFam, famJSON, GENS, S: () => S, L: () => L, A, buildSet, skillPool, sigOf, Chess, mergeStates, defState, clone, SK, availSkills, render, save, setR: v => { R = v; }, unlockParent: () => { parentOK = true; }, clearPinLock: () => { pinLockUntil = 0; pinFails = 0; }, limitLeft };
 })();

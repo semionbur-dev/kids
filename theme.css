@@ -1,0 +1,174 @@
+/* ================= Тема «Игрушечный мир»: небо, наклейки с чёрно-синим контуром, 3D-персонажи =================
+   Грузится после styles.css и переопределяет оформление. Один визуальный приём: контур цвета чернил + жёсткая тень
+   у всего, что можно нажать или что «лежит» на небе. Выразительный акцент один — живой персонаж на главной. */
+@font-face{font-family:"Nunito";font-weight:200 1000;font-display:swap;src:url(fonts/nunito-cyrillic-wght-normal.woff2) format("woff2");unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116}
+@font-face{font-family:"Nunito";font-weight:200 1000;font-display:swap;src:url(fonts/nunito-latin-ext-wght-normal.woff2) format("woff2");unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:"Nunito";font-weight:200 1000;font-display:swap;src:url(fonts/nunito-latin-wght-normal.woff2) format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"Unbounded";font-weight:200 900;font-display:swap;src:url(fonts/unbounded-cyrillic-wght-normal.woff2) format("woff2");unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116}
+@font-face{font-family:"Unbounded";font-weight:200 900;font-display:swap;src:url(fonts/unbounded-latin-ext-wght-normal.woff2) format("woff2");unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:"Unbounded";font-weight:200 900;font-display:swap;src:url(fonts/unbounded-latin-wght-normal.woff2) format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+
+:root{
+  --ink:#2a2562; --mut:#575a86; --sky:#bfe8ff; --sky2:#eaf8ff; --sun:#ffc21a; --sun-d:#e5a300; --coral:#ff5d8f; --mint:#26d0a4; --violet:#6454e8; --paper:#fff;
+  --bg:#eaf8ff; --card:#fff; --line:var(--ink); --pri:var(--violet); --pri-t:#4b3bd0; --pri-b:var(--violet);
+  --disp:"Unbounded","Nunito",system-ui,sans-serif; --edge:2.5px solid var(--ink); --lift:0 4px 0 var(--ink); --lift-s:0 3px 0 var(--ink);
+}
+html,body{font-family:"Nunito","Segoe UI",system-ui,-apple-system,Roboto,sans-serif;font-weight:800}
+body{background:linear-gradient(180deg,#b6e6ff 0,#d7f2ff 320px,#eef9ff 760px) fixed;color:var(--ink)}
+body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background:radial-gradient(ellipse 70px 26px at 12% 70px,#fff 60%,transparent 62%),radial-gradient(ellipse 46px 18px at 20% 60px,#fff 60%,transparent 62%),
+    radial-gradient(ellipse 90px 30px at 82% 140px,#ffffffcc 60%,transparent 62%),radial-gradient(ellipse 54px 20px at 90% 128px,#ffffffcc 60%,transparent 62%)}
+h1,h2,h3,.h1,.rt,.nm,.result h1{font-family:var(--disp);font-weight:700;letter-spacing:-.01em}
+
+/* кнопки: наклейки */
+.btn{background:var(--sun);color:var(--ink);border:var(--edge);border-bottom:var(--edge);box-shadow:var(--lift);border-radius:18px;
+  font-family:var(--disp);font-weight:600;font-size:15px;letter-spacing:0;text-transform:none;padding:14px 16px;transition:transform .08s,box-shadow .08s}
+.btn:active{transform:translateY(4px);box-shadow:0 0 0 var(--ink);border-bottom-width:2.5px}
+.btn.grn{background:var(--mint);border-bottom-color:var(--ink);color:var(--ink)}
+.btn.yel{background:var(--sun);border-bottom-color:var(--ink);color:var(--ink)}
+.btn.blu{background:#6fcfff;border-bottom-color:var(--ink);color:var(--ink)}
+.btn.red{background:var(--coral);border-bottom-color:var(--ink);color:var(--ink)}
+.btn.ghost{background:#fff;color:var(--ink);border:var(--edge);border-bottom:var(--edge)}
+.btn[disabled]{background:#e4e2f4;color:#5a5880;border-color:#8c89b4;box-shadow:0 4px 0 #8c89b4}
+.btn.sm{font-size:13px;padding:10px 12px;border-radius:14px;box-shadow:var(--lift-s)}
+.card .btn{font-size:12px;padding:8px 4px;border-radius:12px;box-shadow:var(--lift-s)}
+
+/* верхняя панель и вкладки */
+.top{background:transparent;backdrop-filter:none}
+.pill{background:#fff;border:var(--edge);box-shadow:var(--lift-s);font-family:var(--disp);font-size:15px;font-weight:700;padding:6px 12px}
+.pill small{color:var(--mut);font-family:"Nunito"}
+.pill.fire b,.pill.coin b,.pill.lv b{color:var(--ink)}
+.tabs{left:12px;right:12px;bottom:calc(10px + var(--sab));max-width:496px;margin:0 auto;border:var(--edge);border-radius:24px;background:#fff;box-shadow:var(--lift);padding:5px}
+.tab{border-radius:18px;font-size:12px;text-transform:none;font-weight:800;color:var(--mut);gap:0;min-height:54px}
+.tab span{filter:none;opacity:1;font-size:22px}
+.tab.on{background:var(--sun);color:var(--ink)}
+#totop{background:#fff;color:var(--ink);border:var(--edge);box-shadow:var(--lift-s);bottom:calc(92px + var(--sab))}
+
+/* общие «наклейки» */
+.card,.prof,.stats div,.rp-card,.bars,.radar,.skrow,.cloud,.kmain,.gl,.pv,.rew div,.goal,.topic{border:var(--edge);box-shadow:var(--lift-s);border-radius:22px;background:#fff}
+.card.on{background:#d6fbef;border-color:var(--ink)}
+.hintbox,.evt,.tip{background:#fff3c4;border:var(--edge);border-radius:18px}
+.sect{font-family:var(--disp);font-size:15px;font-weight:700;text-transform:none;letter-spacing:0;color:var(--ink);margin:18px 2px 10px}
+.rs,.small,.sub{color:var(--mut)}
+.chip2{border:var(--edge);box-shadow:var(--lift-s);font-weight:800;font-size:14px;border-radius:999px}
+.chip2.on{background:var(--sun);color:var(--ink);border-color:var(--ink)}
+.back{border:var(--edge);box-shadow:var(--lift-s);border-radius:14px;color:var(--ink);font-weight:800}
+.bar{height:16px;border:var(--edge);border-radius:99px;background:#fff}
+.bar i,.bar.xp i{background:repeating-linear-gradient(135deg,var(--mint) 0 10px,#6ee9c8 10px 20px);border-radius:0}
+.bar.xp i{background:repeating-linear-gradient(135deg,var(--sun) 0 10px,#ffd966 10px 20px)}
+.lhead .bar i{background:repeating-linear-gradient(135deg,var(--mint) 0 10px,#6ee9c8 10px 20px)}
+.tag{color:var(--ink);border:2px solid var(--ink);background:color-mix(in srgb,var(--c,#6454e8) 38%,#fff);font-weight:800}
+
+/* аватары */
+.avatar{position:relative;flex:none;display:block}
+.avatar>.hat{position:absolute;top:-10%;left:50%;transform:translateX(-50%) rotate(-8deg);font-size:.55em;line-height:1}
+.avatar>.pet{line-height:1}
+.avatar.on3d>.hat,.avatar.on3d>.pet{display:none}
+.avatar .avimg,.avatar .av3d{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none}
+.mascot{background:radial-gradient(circle at 50% 62%,#fff8d6 0 55%,transparent 56%);border-radius:0;display:grid;place-items:center;overflow:visible}
+.mascot.sm{width:56px;height:56px;font-size:30px}
+.mascot.big{width:170px;height:170px;font-size:90px}
+.mascot.sm .hat{font-size:18px}
+.mascot.bounce .avimg{animation:bounce .5s}
+
+/* главная: сцена с небом и холмом */
+.hero{position:relative;display:block;padding:0;margin:4px 0 16px;border:var(--edge);border-radius:28px;box-shadow:var(--lift);overflow:hidden;
+  background:linear-gradient(180deg,#8fd6ff 0,#cdeeff 70%);min-height:212px}
+.hero::before{content:"";position:absolute;left:-12%;right:-12%;bottom:-70px;height:128px;border-top:var(--edge);border-radius:50% 50% 0 0;background:linear-gradient(#7fe08a,#52c870)}
+.hero::after{content:"";position:absolute;right:16px;top:14px;width:64px;height:24px;border-radius:99px;background:#fff;box-shadow:-18px 8px 0 -4px #fff,22px 6px 0 -6px #fff;opacity:.9}
+.hero .mascot{position:absolute;left:8px;bottom:6px;width:156px;height:156px;z-index:1;background:none}
+.hero .bubble{position:relative;margin:16px 14px 14px 150px;background:#fff;border:var(--edge);border-radius:20px;padding:10px 12px;z-index:2;font-size:15px;box-shadow:var(--lift-s)}
+.hero .bubble::before{content:"";position:absolute;left:-10px;bottom:22px;width:16px;height:16px;background:#fff;border-left:var(--edge);border-bottom:var(--edge);transform:rotate(45deg)}
+.hero .chev{display:none}
+.hero .bubble b{font-family:var(--disp);font-weight:700}
+.hero .bubble>span{display:block;margin-top:2px;font-weight:700;line-height:1.3}
+.hero .xpbar{margin-top:8px;height:14px}
+.hero .small{font-size:12px;margin-top:4px}
+.hero:not(.tap){min-height:150px}
+.hero:not(.tap) .bubble{margin:14px 14px 14px 140px}
+.hero:not(.tap) .mascot{width:120px;height:120px}
+
+/* маршрут дня */
+.route{background:#fff;border:var(--edge);border-radius:26px;box-shadow:var(--lift);padding:16px}
+.route.fin{background:#e5e1ff}
+.route .rt{font-size:18px;margin-bottom:4px}
+.rchips{margin:16px 0 14px;position:relative}
+.rchip{width:56px;height:56px;border:var(--edge);background:#fff;opacity:1;font-size:26px;box-shadow:var(--lift-s)}
+.rchip:not(.done):not(.cur){background:#f1eefc;opacity:.9}
+.rchip.done{background:var(--c)}
+.rchip.cur{background:#fff;transform:scale(1.14);animation:none;box-shadow:0 0 0 5px var(--sun),var(--lift-s)}
+.rchip i{background:var(--mint);border:2px solid var(--ink);color:var(--ink);width:22px;height:22px;right:-6px;bottom:-6px}
+.rline{height:0;border-top:4px dashed var(--ink);background:none;max-width:26px;opacity:.5;border-radius:0}
+
+/* карточки навыков */
+.skgrid{gap:12px}
+.skc{background:color-mix(in srgb,var(--c) 22%,#fff);border:var(--edge);border-bottom:var(--edge);border-radius:24px;box-shadow:var(--lift);padding:14px 12px 12px;gap:4px;position:relative;overflow:hidden}
+.skc:nth-child(even){transform:rotate(.8deg)}.skc:nth-child(odd){transform:rotate(-.8deg)}
+.skc:active{transform:translateY(4px) rotate(0);box-shadow:0 0 0 var(--ink)}
+.skc .ico{font-size:34px;width:56px;height:56px;border-radius:18px;background:#fff;border:var(--edge);display:grid;place-items:center;margin-bottom:4px;box-shadow:var(--lift-s)}
+.skc b{font-family:var(--disp);font-size:14px;font-weight:700;color:var(--ink)}
+.skc small{color:#3e3a78;min-height:30px}
+.pips i{height:10px;border:2px solid var(--ink);background:#fff;border-radius:99px;width:18px}.pips i.on{background:var(--ink)}
+
+/* урок */
+.lesson{background:transparent}
+.lhead .x{color:var(--ink);border:var(--edge);border-radius:14px;background:#fff;box-shadow:var(--lift-s);width:44px;height:44px;font-size:22px}
+.qtext{font-size:22px;font-weight:800;line-height:1.3}
+.opt,.pad button,.bk,.numdisp{border:var(--edge);border-bottom:var(--edge);border-radius:18px;box-shadow:var(--lift);background:#fff;color:var(--ink);transition:transform .08s,box-shadow .08s}
+.opt{font-family:var(--disp);font-weight:600}
+.opt.txt{font-family:"Nunito";font-weight:800}
+.opt:active,.pad button:active,.bk:active{transform:translateY(4px);box-shadow:0 0 0 var(--ink)}
+.opt.sel{background:#fff0b3;border-color:var(--ink);color:var(--ink)}
+.opt.ok{background:#b9f3de;border-color:var(--ink);color:var(--ink)}
+.opt.no{background:#ffc4d6;border-color:var(--ink);color:var(--ink)}
+.numdisp{font-family:var(--disp);box-shadow:inset 0 3px 0 rgba(42,37,98,.12)}
+.numdisp.ok{background:#b9f3de;border-color:var(--ink)}.numdisp.no{background:#ffc4d6;border-color:var(--ink)}
+.pad button{font-family:var(--disp);font-weight:600;font-size:22px;border-radius:16px;box-shadow:var(--lift-s)}
+.lfoot{background:transparent}
+.fb{border-top:var(--edge);border-radius:26px 26px 0 0}
+.fb.ok{background:#b9f3de;color:var(--ink)}.fb.no{background:#ffc4d6;color:var(--ink)}
+.fb .msg{gap:8px}.fb .msg b{font-family:var(--disp);font-weight:700;font-size:20px}
+.combo{border:2px solid var(--ink);color:var(--ink)}
+.blank{background:#fff3c4;border-color:var(--ink);color:var(--ink)}
+.chip{border:var(--edge)}.chip.q{background:#fff3c4;border-color:var(--ink);color:var(--ink)}
+.visual{font-weight:800}
+
+/* результат */
+.result .mascot.big{width:190px;height:190px;margin:4px auto}
+.result h1{font-size:26px;line-height:1.15}
+.stars span{filter:none;opacity:1;color:transparent;text-shadow:0 0 0 #d6d3ee}
+.stars span.on{text-shadow:none;color:inherit}
+.rew div{font-size:12px;color:var(--mut)}.rew b{font-family:var(--disp);font-size:20px}
+
+/* магазин и награды */
+.card{padding:12px 6px 10px}
+.card .em{font-size:44px}
+.card .em.avatar{width:84px;height:84px}
+.card.lock .avatar .avimg{filter:grayscale(1) brightness(1.15);opacity:.45}
+.card .ttl{font-weight:800}
+.grid{gap:12px}
+
+/* онбординг, профили, модалки */
+.onb h1{font-family:var(--disp);font-size:32px;color:var(--ink)}
+.onb p{color:var(--ink);font-weight:800}
+.onb input,.kin{border:var(--edge);border-radius:18px;box-shadow:var(--lift-s);background:#fff}
+.onb input:focus,.kin:focus{outline:3px solid var(--sun);outline-offset:2px;border-color:var(--ink)}
+.pets button{border:var(--edge);box-shadow:var(--lift-s);background:#fff;border-radius:22px;padding:6px}
+.pets button.on{background:var(--sun);border-color:var(--ink);transform:none}
+.pets button .avatar{width:76px;height:76px}
+.pets.lang button{padding:10px 14px}
+.dlg{border:var(--edge);box-shadow:0 6px 0 var(--ink);border-radius:28px}
+.dlg h3{font-family:var(--disp);font-size:20px}.dlg p{color:var(--mut)}
+.toast{border:var(--edge);background:#fff;color:var(--ink);box-shadow:var(--lift-s)}
+.whoc{border:var(--edge);box-shadow:var(--lift);border-radius:28px;font-family:var(--disp);font-weight:700;font-size:17px}
+.whoc.c0{background:#e5e1ff}.whoc.c1{background:#ffe3d2}.whoc.c2{background:#d6fbef}
+.whoc .mascot{width:112px;height:112px;background:radial-gradient(circle at 50% 62%,#ffffffb0 0 55%,transparent 56%)}
+.kmain{border-radius:20px}.kidrow.on .kmain{background:#fff0b3;border-color:var(--ink)}
+.cb{border:var(--edge);box-shadow:var(--lift);border-radius:22px}
+.gl i{background:var(--sun);color:var(--ink)}
+.gw{border-bottom-color:var(--coral)}
+.node{border:var(--edge)}
+.card.lock .avatar .avimg{filter:grayscale(1) brightness(.35);opacity:.5}
+.onb h1{font-size:26px}
+.chip2{min-width:44px}
+.skrow .num small,.rp-card small{font-size:12px}
