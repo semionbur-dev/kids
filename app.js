@@ -1,7 +1,7 @@
 'use strict';
 (() => {
 const { GENS, LANGS, rnd, pick, shuffle, esc, t: tt, setLang, getLang, generate } = window.Gens;
-const BUILD = 'v19';
+const BUILD = 'v20';
 const P = pair => pair[LANGS.indexOf(getLang())];
 const LANG_NAMES = { be: 'Беларуская', ru: 'Русский', cs: 'Čeština', en: 'English' };
 const langOk = l => (LANGS.includes(l) ? l : 'ru');
@@ -64,10 +64,11 @@ const ACH = [
 /* ======================== Состояние ======================== */
 const KEY = 'umniki.v1';
 const defState = () => ({ id: '', age: 0, name: '', pet: '', pets: [], hat: '', hats: [], coins: 0, xp: 0, ach: {},
-  stat: { lessons: 0, correct: 0, perfect: 0, bestCombo: 0, routes: 0 }, starsTotal: 0, chessLessons: {}, words: {}, parent: Skills.newParent(), bil: Skills.newBil(), skills: Skills.newSkills(), hist: {}, route: null,
+  stat: { lessons: 0, correct: 0, perfect: 0, bestCombo: 0, routes: 0 }, starsTotal: 0, chessLessons: {}, words: {}, speak: 'tap', speakSet: false, parent: Skills.newParent(), bil: Skills.newBil(), skills: Skills.newSkills(), hist: {}, route: null,
   sound: true, recent: [], ts: 0, lang: (/^(be|cs|en|ru)/i.exec(navigator.language || '') || ['ru'])[0].toLowerCase() });
 let S;
 const OLD_KEYS = ['hearts', 'heartAt', 'streak', 'bestStreak', 'lastDay', 'todayDate', 'todayXp', 'goalPaid'];
+const speakDefault = age => (Skills.isYoungAge(age) ? 'auto' : 'tap');   // малыши 5–7: задания читаются сами
 const KEY2 = 'umniki.v2', MAX_KIDS = 3;
 let FAM = { kids: [], parent: null, consent: { seen: '', cloud: '' } };   // семья: до 3 детских профилей и общий родительский PIN/лимит
 const newId = () => 'k' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
@@ -81,6 +82,7 @@ function norm(raw) {   // приводит сохранённое состоян
   s.bil = Skills.fixBil(s.bil); s.skills = Skills.fixSkills(s.skills); if (!s.hist || typeof s.hist !== 'object') s.hist = {};
   for (const k of [...OLD_KEYS, 'done', 'parent']) delete s[k];
   s.lang = langOk(s.lang); s.age = Skills.AGES.includes(s.age | 0) ? s.age | 0 : 0;
+  if (!['off', 'tap', 'auto'].includes(s.speak)) s.speak = 'tap'; if (!s.speakSet) s.speak = speakDefault(s.age);
   return s;
 }
 const applyLang = () => { setLang(S.lang); document.documentElement.lang = S.lang; document.title = tt('Умники', 'Разумнікі', `Chytráci`, `Smart Kids`); };
@@ -228,6 +230,7 @@ function render() {
   if (!S.name) R = 'onboard';
   if (!['parent', 'report', 'kid', 'gloss', 'privacy'].includes(R)) parentOK = false;
   if ((R === 'parent' || R === 'report') && !parentOK) { PN = { mode: Skills.hasPin(S.parent) ? 'enter' : 'set', buf: '', first: '', next: R, back: 'profile', err: '' }; R = 'pin'; }
+  if (R !== 'lesson' && window.Speech) Speech.stop();
   if (R === 'kid' && !parentOK) R = 'profile';
   if (R === 'profile' || R === 'onboard') prefetchFb();
   ({ onboard: rOnboard, home: rHome, shop: rShop, awards: rAwards, profile: rProfile, report: rReport, chess: rChess, pin: rPin, parent: rParent, who: rWho, kid: rKid, gloss: rGloss, privacy: rPrivacy, timeup: rTimeup, lesson: rLesson, result: rResult })[R]();
@@ -449,6 +452,11 @@ function rParent() {
     <div class="sect">⏱ ${tt('Время занятий в день (для каждого ребёнка)', 'Час заняткаў у дзень (для кожнага дзіцяці)', `Čas cvičení za den (pro každé dítě)`, `Daily practice time (per child)`)}</div>
     <div class="chips">${LIMITS.map(m => `<button class="chip2${lim === m ? ' on' : ''}" data-a="limit" data-m="${m}">${m ? `${m} ${tt('мин', 'хв', `min`, `min`)}` : tt('Без лимита', 'Без ліміту', `Bez limitu`, `No limit`)}</button>`).join('')}</div>
     <div class="rs" style="margin:4px 2px 8px">${tt(`Сегодня: ${used} мин`, `Сёння: ${used} хв`, `Dnes: ${used} min`, `Today: ${used} min`)}${lim ? ` ${tt('из', 'з', `z`, `of`)} ${lim + ex}` : ''}. ${tt('Когда время выйдет, занятие мягко завершится, и ребёнок увидит экран отдыха.', 'Калі час скончыцца, занятак мякка завяршыцца, і дзіця ўбачыць экран адпачынку.', `Až čas vyprší, trénink se jemně ukončí a dítě uvidí obrazovku odpočinku.`, `When time runs out the session ends gently and the child sees a rest screen.`)}</div>
+    <div class="sect">🔊 ${tt('Озвучка заданий', 'Агучванне заданняў', `Hlasité čtení úloh`, `Reading tasks aloud`)}</div>
+    <div class="chips">${[['off', tt('Выкл', 'Выкл.', `Vypnuto`, `Off`)], ['tap', tt('По кнопке', 'Па кнопцы', `Tlačítkem`, `On tap`)], ['auto', tt('Сама читает', 'Сама чытае', `Čte samo`, `Automatic`)]].map(([m, n]) => `<button class="chip2${S.speak === m ? ' on' : ''}" data-a="speakmode" data-m="${m}">${n}</button>`).join('')}</div>
+    <div class="rs" style="margin:6px 2px 8px">${tt('Читает голос самого телефона, без интернета. Для 5–7 лет по умолчанию «Сама читает».', 'Чытае голас самога тэлефона, без інтэрнэту. Для 5–7 гадоў па змаўчанні «Сама чытае».', `Čte hlas samotného telefonu, bez internetu. Pro 5–7 let je výchozí „Čte samo“.`, `Uses the phone's own voice, no internet needed. For ages 5–7 the default is “Automatic”.`)}
+      <br>${window.Speech && Speech.supported() ? LANGS.map(l => `${LANG_NAMES[l]} ${Speech.canSpeak(l) ? '✓' : '✗'}`).join(' · ') : tt('Этот браузер не умеет читать вслух.', 'Гэты браўзер не ўмее чытаць услых.', `Tento prohlížeč neumí číst nahlas.`, `This browser cannot read aloud.`)}
+      ${window.Speech && Speech.supported() && !Speech.canSpeak('be') ? `<br>${tt('Для белорусского на телефоне обычно нет голоса, поэтому на этом языке озвучка выключена.', 'Для беларускай на тэлефоне звычайна няма голасу, таму на гэтай мове агучванне выключана.', `Pro běloruštinu telefon obvykle hlas nemá, proto je na tomto jazyce hlasité čtení vypnuto.`, `Phones usually have no Belarusian voice, so reading aloud is off for that language.`)}` : ''}</div>
     <div class="sect">🌍 ${tt('Двуязычный режим', 'Двумоўны рэжым', `Dvojjazyčný režim`, `Bilingual mode`)}</div>
     <div class="rs" style="margin:0 2px 6px">${tt('Основной язык', 'Асноўная мова', `Hlavní jazyk`, `Main language`)}: <b>${LANG_NAMES[S.lang]}</b>. ${tt('Второй язык', 'Другая мова', `Druhý jazyk`, `Second language`)}:</div>
     <div class="chips"><button class="chip2${!S.bil.second ? ' on' : ''}" data-a="bilsecond" data-l="">${tt('Выкл', 'Выкл.', `Vypnuto`, `Off`)}</button>${LANGS.filter(l => l !== S.lang).map(l => `<button class="chip2${S.bil.second === l ? ' on' : ''}" data-a="bilsecond" data-l="${l}">${LANG_NAMES[l]}</button>`).join('')}</div>
@@ -647,7 +655,17 @@ function glossify(html, lang) {
     return out + seg.slice(pos);
   }).join('');
 }
-const qHTML = (q, v) => `${qTag(q)}${langChip(q)}<div class="qtext">${glossify(v.text, viewLang(q))}</div>${v.visual ? `<div class="visual">${v.visual}</div>` : ''}`;
+/* ---------- озвучка (F7) ---------- */
+const speakOn = lang => S.speak !== 'off' && window.Speech && Speech.canSpeak(lang);
+const spkBtn = q => (speakOn(viewLang(q)) ? `<button class="spk" data-a="speak" aria-label="${tt('Прочитать вслух', 'Прачытаць услых', `Přečíst nahlas`, `Read aloud`)}">🔊</button>` : '');
+const qText = q => { const v = view(q); return L && q.study && !L.studied && !L.answered ? v.study.text : v.text; };
+function say(html, lang, o) { if (window.Speech) Speech.say(html, lang, Object.assign({ rate: Skills.isYoungAge(S.age) ? 0.8 : 0.9 }, o)); }
+function autoSpeak(q) {   // при появлении вопроса (и при смене языка кнопкой «не понял»), если у ребёнка включено «читать самой»
+  if (!L || S.speak !== 'auto' || L.answered) return; const key = (q.study && !L.studied ? 's' : 'q') + (L.alt ? 'a' : 'm');
+  if (L.said === q && L.saidKey === key) return; L.said = q; L.saidKey = key; const lang = viewLang(q); if (speakOn(lang)) say(qText(q), lang);
+}
+const FB_OK = { ru: 'Верно!', be: 'Правільна!', cs: 'Správně!', en: 'Correct!' }, FB_NO = { ru: 'Ничего, бывает!', be: 'Нічога, бывае!', cs: 'Nic se neděje!', en: 'It happens!' };
+const qHTML = (q, v) => `${qTag(q)}${langChip(q)}<div class="qrow"><div class="qtext">${glossify(v.text, viewLang(q))}</div>${spkBtn(q)}</div>${v.visual ? `<div class="visual">${v.visual}</div>` : ''}`;
 function lHead() {
   const prog = Math.round(L.resolved / (L.total + L.added) * 100), r = S.route;
   const right = L.route && r ? `${Math.min(r.done.length + 1, r.skills.length)}/${r.skills.length}` : SK[L.skill].icon;
@@ -657,9 +675,10 @@ function lHead() {
 function rStudy(q) {
   clearTimeout(L.timer);
   const secs = q.study.secs, v = view(q);
-  root.innerHTML = `<div class="lesson">${lHead()}<div class="qwrap">${qTag(q)}${langChip(q)}<div class="qtext">${v.study.text}</div>
+  root.innerHTML = `<div class="lesson">${lHead()}<div class="qwrap">${qTag(q)}${langChip(q)}<div class="qrow"><div class="qtext">${v.study.text}</div>${spkBtn(q)}</div>
     <div class="visual studyv">${v.study.html}</div><div class="cd"><i style="animation-duration:${secs}s"></i></div></div>
     <div class="lfoot">${globeBtn(q)}<button class="btn grn" data-a="ready">${tt('Готов', 'Гатова', `Hotovo`, `Ready`)}</button></div></div>`;
+  autoSpeak(q);
   L.timer = setTimeout(() => { if (L && L.queue[0] === q && !L.studied && !L.answered) { L.studied = true; rLesson(); } }, secs * 1000);
 }
 /* объяснение урока по шахматам: фигура, её ходы на доске и короткое правило */
@@ -680,7 +699,8 @@ function rBoard(q) {
       ? `<div class="fb ok"><div class="msg">${mascot('sm', true, S, { pose: 'happy' })}<div><b>${pick(tt(['Верно!', 'Отлично!', 'Супер!', 'Блестяще!'], ['Правільна!', 'Выдатна!', 'Суперпа!', 'Бліскуча!'], ['Správně!', 'Výborně!', 'Super!', 'Skvělé!'], ['Correct!', 'Great job!', 'Super!', 'Brilliant!']))}</b>${esc(v.explain || '')}</div></div><button class="btn grn" data-a="next">${tt('Дальше', 'Далей', `Dál`, `Next`)}</button></div>`
       : `<div class="fb no"><div class="msg">${mascot('sm', false, S, { pose: 'sad' })}<div><b>${tt('Ничего, бывает!', 'Нічога, бывае!', `Nic se neděje!`, `It happens!`)}</b>${tt('Правильный ход показан на доске.', 'Правільны ход паказаны на дошцы.', `Správný tah je ukázán na šachovnici.`, `The correct move is shown on the board.`)}<br>${esc(v.explain || '')}</div></div><button class="btn red" data-a="next">${tt('Понятно', 'Зразумела', `Jasné`, `Got it`)}</button></div>`;
   } else foot = `<div class="lfoot"><button class="btn ghost" data-a="hint" style="flex:1">💡 ${HINT_PRICE}🪙</button>${globeBtn(q)}</div>`;
-  root.innerHTML = `<div class="lesson">${lHead()}<div class="qwrap">${qTag(q)}${langChip(q)}<div class="qtext">${v.text}</div>${L.hint ? `<div class="hintbox">💡 ${esc(v.hint)}</div>` : ''}${board}</div>${foot}</div>`;
+  root.innerHTML = `<div class="lesson">${lHead()}<div class="qwrap">${qTag(q)}${langChip(q)}<div class="qrow"><div class="qtext">${v.text}</div>${spkBtn(q)}</div>${L.hint ? `<div class="hintbox">💡 ${esc(v.hint)}</div>` : ''}${board}</div>${foot}</div>`;
+  autoSpeak(q);
 }
 function answerBoard(ok) {
   const q = L.queue[0]; tickTime(); L.answered = true; L.ok = ok;
@@ -719,6 +739,7 @@ function rLesson() {
     foot = `<div class="lfoot"><button class="btn ghost" data-a="hint">💡 ${HINT_PRICE}🪙</button>${globeBtn(q)}<button class="btn grn" data-a="check" ${can ? '' : 'disabled'}>${tt('Проверить', 'Праверыць', `Zkontrolovat`, `Check`)}</button></div>`;
   }
   root.innerHTML = `<div class="lesson">${lHead()}<div class="qwrap">${qHTML(q, v)}${L.hint ? `<div class="hintbox">💡 ${esc(v.hint)}</div>` : ''}${ans}</div>${foot}</div>`;
+  autoSpeak(q);
 }
 /* Учёт результата вопроса: для адаптивности и отчёта — только первая попытка (firstTry); для звёзд и XP — засчитан ли (credited) */
 function gradeQ(q, firstTry, credited) {
@@ -744,6 +765,7 @@ function check() {
     else L.resolved++;   // повторный промах — засчитываем как пройденный, чтобы не зациклиться
   }
   save(); rLesson();
+  if (S.speak === 'auto') { const lg = viewLang(q); if (speakOn(lg)) say(ok ? FB_OK[lg] : FB_NO[lg], lg); }
   if (window.Avatar) Avatar.react(ok ? 'happy' : 'sad');
   if (!ok) { const el = $('.fb') || root; el.classList.add('shake'); }
 }
@@ -994,10 +1016,10 @@ const A = {
     if (!name) { toast(tt('Напишите имя', 'Напішыце імя', `Napište jméno`, `Type a name`)); return; }
     if (!KF.age) { toast(tt('Выберите возраст', 'Абярыце ўзрост', `Vyberte věk`, `Pick an age`)); return; }
     if (!KF.id) {
-      const k = Object.assign(defState(), { id: newId(), name, age: KF.age, pet: KF.pet, pets: [KF.pet], skills: Skills.newSkills(KF.age), lang: S.lang }); delete k.parent; FAM.kids.push(k);
+      const k = Object.assign(defState(), { id: newId(), name, age: KF.age, pet: KF.pet, pets: [KF.pet], skills: Skills.newSkills(KF.age), lang: S.lang, speak: speakDefault(KF.age) }); delete k.parent; FAM.kids.push(k);
     } else {
       const k = FAM.kids.find(x => x.id === KF.id); if (!k) return;
-      k.name = name; if (k.age !== KF.age) { k.age = KF.age; Skills.applyAge(k.skills, k.age); }
+      k.name = name; if (k.age !== KF.age) { k.age = KF.age; Skills.applyAge(k.skills, k.age); if (!k.speakSet) k.speak = speakDefault(k.age); }
     }
     save(); sfx.ok(); R = 'parent'; render();
   },
@@ -1012,7 +1034,7 @@ const A = {
     const v = ($('#nm').value || '').trim();
     if (!v) { toast(tt('Напиши своё имя 🙂', 'Напішы сваё імя 🙂', `Napiš své jméno 🙂`, `Type your name 🙂`)); return; }
     if (!ob.age) { toast(tt('Выбери свой возраст 🙂', 'Абяры свой ўзрост 🙂', `Vyber svůj věk 🙂`, `Pick your age 🙂`)); return; }
-    S.id = S.id || newId(); S.name = v; S.age = ob.age; S.skills = Skills.newSkills(ob.age); S.pet = ob.pet; S.pets = [ob.pet];
+    S.id = S.id || newId(); S.name = v; S.age = ob.age; S.speak = speakDefault(ob.age); S.skills = Skills.newSkills(ob.age); S.pet = ob.pet; S.pets = [ob.pet];
     if (!FAM.kids.includes(S)) FAM.kids.push(S);
     save(); R = 'home'; render();
   },
@@ -1042,7 +1064,15 @@ const A = {
     rLesson();
   },
   again() { startSession(RES.skill, RES.lesson ? { lesson: RES.lesson } : {}); },
-  pick(el) { if (L.answered) return; L.sel = +el.dataset.i; sfx.tap(); rLesson(); },
+  pick(el) {
+    if (L.answered) return; L.sel = +el.dataset.i; sfx.tap(); rLesson();
+    if (S.speak === 'auto') { const q = L.queue[0], c = q.choices && q.choices[L.sel], lg = viewLang(q); if (c && speakOn(lg) && plain(c.h).length <= 40) say(c.h, lg); }   // выбранный вариант тоже называем
+  },
+  speak() {
+    const q = L && L.queue[0]; if (!q) return; const lg = viewLang(q);
+    if (window.Speech && Speech.speaking()) { Speech.stop(); return; } if (speakOn(lg)) say(qText(q), lg);
+  },
+  speakmode(el) { S.speak = el.dataset.m; S.speakSet = true; save(); sfx.tap(); render(); if (window.Speech) { Speech.unlock(); if (S.speak !== 'off' && Speech.canSpeak(S.lang)) say(tt('Привет! Я буду читать задания вслух.', 'Прывітанне! Я буду чытаць заданні ўслых.', `Ahoj! Budu ti číst úlohy nahlas.`, `Hi! I will read the tasks aloud.`), S.lang); } },
   key(el) { press(el.dataset.k); },
   check() { const b = $('[data-a=check]'); if (b && !b.disabled) check(); },
   next() { next(); },
@@ -1112,6 +1142,7 @@ document.addEventListener('click', e => {
   const mi = e.target.closest('[data-mi]');
   if (mi) { const m = $('#modal'), b = m._btns && m._btns[+mi.dataset.mi]; closeModal(); if (b) b.f(); return; }
   const el = e.target.closest('[data-a]'); if (!el) return;
+  if (window.Speech) Speech.unlock();
   if (!ac && S.sound) { try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (er) {} }
   const f = A[el.dataset.a]; if (f) f(el);
 });
@@ -1142,5 +1173,5 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
   navigator.serviceWorker.addEventListener('controllerchange', () => { if (had && !reloaded && R !== 'lesson') { reloaded = true; location.reload(); } });   // вышла новая версия — подхватываем сразу
   navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(r => r.update().catch(() => {})).catch(() => {});
 }
-window.__umniki = { BUILD, load, exportData, Avatar: window.Avatar, cloudErase, glossify, FAM: () => FAM, useKid, mergeFam, norm, setFam, famJSON, GENS, S: () => S, L: () => L, A, buildSet, skillPool, sigOf, Chess, mergeStates, defState, clone, SK, availSkills, render, save, setR: v => { R = v; }, unlockParent: () => { parentOK = true; }, clearPinLock: () => { pinLockUntil = 0; pinFails = 0; }, limitLeft };
+window.__umniki = { speakOn, BUILD, load, exportData, Avatar: window.Avatar, cloudErase, glossify, FAM: () => FAM, useKid, mergeFam, norm, setFam, famJSON, GENS, S: () => S, L: () => L, A, buildSet, skillPool, sigOf, Chess, mergeStates, defState, clone, SK, availSkills, render, save, setR: v => { R = v; }, unlockParent: () => { parentOK = true; }, clearPinLock: () => { pinLockUntil = 0; pinFails = 0; }, limitLeft };
 })();

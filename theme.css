@@ -197,3 +197,8 @@ h1,h2,h3,.h1,.rt,.nm,.result h1{font-family:var(--disp);font-weight:700;letter-s
 .whoc{gap:6px;padding:16px 8px 14px}
 .whoc.add{background:transparent;border-style:dashed;box-shadow:none;color:var(--mut)}
 .whoc .plus{font-family:var(--disp);font-size:44px;line-height:96px;width:96px;height:96px;border-radius:50%;border:var(--edge);background:#fff;color:var(--ink)}
+
+/* озвучка: кнопка рядом с текстом вопроса */
+.qrow{display:flex;align-items:flex-start;gap:10px}.qrow .qtext{flex:1}
+.spk{flex:none;width:52px;height:52px;border-radius:50%;border:var(--edge);background:var(--sun);box-shadow:var(--lift-s);font-size:24px;display:grid;place-items:center}
+.spk:active{transform:translateY(3px);box-shadow:0 0 0 var(--ink)}
