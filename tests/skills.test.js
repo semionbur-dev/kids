@@ -77,4 +77,13 @@ t('Маршрут: за неделю каждый навык встречает�
   for (const s of K.SKILLS) assert.ok(seen[s] >= 3, `${s}: ${seen[s]}`); });
 t('Все генераторы привязаны к навыкам', () => { assert.ok(Object.values(K.SKILL_OF).every(s => K.SKILLS.includes(s))); });
 
+t('PIN: хэш одинаков для одного PIN и соли, разный для других; открытый текст не хранится', () => { const a = K.pinHash('1234', 'x'), b = K.pinHash('1234', 'x'); assert.strictEqual(a, b); assert.notStrictEqual(a, K.pinHash('1235', 'x')); assert.notStrictEqual(a, K.pinHash('1234', 'y')); assert.ok(!a.includes('1234')); });
+t('PIN: проверка верного и неверного кода; без PIN проверка всегда неуспешна', () => { const p = K.newParent(); assert.ok(!K.hasPin(p)); assert.ok(!K.checkPin(p, '0000')); K.setPin(p, '4821', 'salt1'); assert.ok(K.hasPin(p)); assert.ok(K.checkPin(p, '4821')); assert.ok(!K.checkPin(p, '4822')); assert.ok(!K.checkPin(p, '')); assert.ok(!JSON.stringify(p).includes('4821')); });
+t('Лимит: «без лимита» = бесконечность', () => assert.strictEqual(K.limitLeft(K.newParent(), {}, '2026-11-16'), Infinity));
+t('Лимит: вычитается время за сегодня и время текущего занятия', () => { const p = K.newParent(); p.limit = 20; const h = {}; K.addHist(h, '2026-11-16', { sec: 600 }); K.addHist(h, '2026-11-15', { sec: 5000 }); assert.strictEqual(K.limitLeft(p, h, '2026-11-16'), 600); assert.strictEqual(K.limitLeft(p, h, '2026-11-16', 150), 450); assert.ok(K.limitLeft(p, h, '2026-11-16', 700) < 0); });
+t('Лимит: добавленное родителем время действует только в тот же день', () => { const p = K.newParent(); p.limit = 10; p.extra = { date: '2026-11-16', min: 15 }; assert.strictEqual(K.limitLeft(p, {}, '2026-11-16'), 25 * 60); assert.strictEqual(K.limitLeft(p, {}, '2026-11-17'), 10 * 60); });
+t('Лимит: на следующий день счёт начинается заново', () => { const p = K.newParent(); p.limit = 10; const h = {}; K.addHist(h, '2026-11-16', { sec: 600 }); assert.ok(K.limitLeft(p, h, '2026-11-16') <= 0); assert.strictEqual(K.limitLeft(p, h, '2026-11-17'), 600); });
+t('Слияние родительских настроек: побеждает копия, где задан PIN', () => { const a = K.newParent(), b = K.newParent(); K.setPin(b, '1111', 's'); b.limit = 30; assert.strictEqual(K.mergeParent(a, b).limit, 30); assert.ok(K.hasPin(K.mergeParent(a, b))); const c = K.newParent(); K.setPin(c, '2222', 't'); assert.ok(K.checkPin(K.mergeParent(c, b), '2222')); });
+t('fixParent чинит повреждённые данные', () => { const p = K.fixParent({ limit: 9999, extra: null, pin: 5 }); assert.strictEqual(p.limit, 180); assert.deepStrictEqual(p.extra, { date: '', min: 0 }); assert.deepStrictEqual(K.fixParent(null), K.newParent()); });
+
 console.log(`\n${passed} проверок пройдено`);

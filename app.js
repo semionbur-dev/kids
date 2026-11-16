@@ -63,7 +63,7 @@ const ACH = [
 /* ======================== Состояние ======================== */
 const KEY = 'umniki.v1';
 const defState = () => ({ name: '', pet: '', pets: [], hat: '', hats: [], coins: 0, xp: 0, ach: {},
-  stat: { lessons: 0, correct: 0, perfect: 0, bestCombo: 0, routes: 0 }, starsTotal: 0, chessLessons: {}, skills: Skills.newSkills(), hist: {}, route: null,
+  stat: { lessons: 0, correct: 0, perfect: 0, bestCombo: 0, routes: 0 }, starsTotal: 0, chessLessons: {}, parent: Skills.newParent(), skills: Skills.newSkills(), hist: {}, route: null,
   sound: true, recent: [], ts: 0, lang: (/^(be|cs|en|ru)/i.exec(navigator.language || '') || ['ru'])[0].toLowerCase() });
 let S;
 const OLD_KEYS = ['hearts', 'heartAt', 'streak', 'bestStreak', 'lastDay', 'todayDate', 'todayXp', 'goalPaid'];
@@ -74,6 +74,7 @@ function load() {
   if (S.starsTotal === undefined || (raw && raw.done && !raw.starsTotal)) {   // перенос звёзд из старых «уроков»
     S.starsTotal = Math.max(S.starsTotal || 0, Object.values((raw && raw.done) || {}).reduce((a, arr) => a + (arr || []).reduce((x, y) => x + (y || 0), 0), 0)); }
   if (!S.chessLessons || typeof S.chessLessons !== 'object') S.chessLessons = {};
+  S.parent = Skills.fixParent(S.parent);
   S.skills = Skills.fixSkills(S.skills); if (!S.hist || typeof S.hist !== 'object') S.hist = {};
   for (const k of [...OLD_KEYS, 'done']) delete S[k];
   S.lang = langOk(S.lang);
@@ -89,6 +90,11 @@ const daysTotal = s => Skills.daysPlayedTotal(s.hist);
 const availSkills = () => SKILLS.filter(k => GENS.some(g => Skills.SKILL_OF[g.id] === k));
 const weekCount = () => Skills.daysPlayedIn(S.hist, today(), 7);
 const pad = n => String(n).padStart(2, '0');
+/* родительская зона и лимит времени (F10) */
+let PN = null, parentOK = false, pinFails = 0, pinLockUntil = 0, pinResetPending = false;
+const limitLeft = () => Skills.limitLeft(S.parent, S.hist, today(), L && R === 'lesson' ? L.sec : 0);
+const limitHit = () => limitLeft() <= 0;
+const minsLeft = () => Math.max(1, Math.ceil(limitLeft() / 60));
 
 /* ======================== Звук и эффекты ======================== */
 let ac = null;
@@ -182,8 +188,10 @@ const tabs = on => `<nav class="tabs">${[['home', '🏠', tt('Учёба', 'На
 
 function render() {
   if (!S.name) R = 'onboard';
+  if (R !== 'parent' && R !== 'report') parentOK = false;
+  if ((R === 'parent' || R === 'report') && !parentOK) { PN = { mode: Skills.hasPin(S.parent) ? 'enter' : 'set', buf: '', first: '', next: R, back: 'profile', err: '' }; R = 'pin'; }
   if (R === 'profile' || R === 'onboard') prefetchFb();
-  ({ onboard: rOnboard, home: rHome, shop: rShop, awards: rAwards, profile: rProfile, report: rReport, chess: rChess, lesson: rLesson, result: rResult })[R]();
+  ({ onboard: rOnboard, home: rHome, shop: rShop, awards: rAwards, profile: rProfile, report: rReport, chess: rChess, pin: rPin, parent: rParent, timeup: rTimeup, lesson: rLesson, result: rResult })[R]();
   window.scrollTo(0, 0);
 }
 
@@ -197,6 +205,7 @@ function rOnboard() {
     <p>${tt('Выбери себе друга:', 'Абяры сабе сябра:', `Vyber si kamaráda:`, `Choose a friend:`)}</p>
     <div class="pets">${['🐱', '🐶', '🐰'].map(e => `<button class="${ob.pet === e ? 'on' : ''}" data-a="obpet" data-e="${e}">${e}</button>`).join('')}</div>
     <button class="btn ghost sm" data-a="login">🔑 ${tt('У меня уже есть профиль — войти через Google', 'У мяне ўжо ёсць профіль — увайсці праз Google', `Už mám profil – přihlásit se přes Google`, `I already have a profile – sign in with Google`)}</button>
+    <div class="rs" style="text-align:center">${tt('Родителям: PIN и лимит времени — в профиле, «Родительская зона».', 'Бацькам: PIN і ліміт часу — у профілі, «Бацькоўская зона».', `Rodičům: PIN a limit času najdete v profilu, „Rodičovská zóna“.`, `For parents: PIN and time limit are in the profile, “Parents’ zone”.`)}</div>
     <div style="margin-top:auto"><button class="btn grn" data-a="obstart">${tt('Поехали!', 'Паехалі!', `Jdeme na to!`, `Let's go!`)}</button></div></div>`;
 }
 
@@ -217,13 +226,16 @@ function rHome() {
   const L0 = lvl(S.xp), a = lvlStart(L0), b = lvlStart(L0 + 1), pr = Math.min(100, Math.round((S.xp - a) / (b - a) * 100));
   const had = S.route && S.route.date === today(), r = Skills.ensureRoute(S, today(), availSkills());
   if (!had) save({ nopush: true });
-  const nx = r.skills.findIndex(k => !r.done.includes(k));
+  const nx = r.skills.findIndex(k => !r.done.includes(k)), left = limitLeft(), hit = left <= 0;
   const chips = r.skills.map((k, i) => { const dn = r.done.includes(k); return `<span class="rchip${dn ? ' done' : ''}${i === nx ? ' cur' : ''}" style="--c:${SK[k].color}">${SK[k].icon}${dn ? '<i>✓</i>' : ''}</span>`; }).join('<span class="rline"></span>');
-  const routeCard = r.finished
+  const routeCard = hit && !r.finished
+    ? `<div class="route fin"><div class="rt">🌙 ${tt('На сегодня время вышло', 'На сёння час скончыўся', `Čas pro dnešek vypršel`, `Time is up for today`)}</div><div class="rs">${tt('Отдых тоже помогает учиться. Приходи завтра!', 'Адпачынак таксама дапамагае вучыцца. Прыходзь заўтра!', `Odpočinek taky pomáhá při učení. Přijď zítra!`, `Rest helps learning too. Come back tomorrow!`)}</div></div>`
+    : r.finished
     ? `<div class="route fin"><div class="rt">${tt('✅ На сегодня всё!', '✅ На сёння ўсё!', `✅ Pro dnešek hotovo!`, `✅ That's all for today!`)}</div><div class="rchips">${chips}</div>
         <div class="rs">${tt('Приходи завтра — будет новый маршрут 🌙', 'Прыходзь заўтра — будзе новы маршрут 🌙', `Přijď zítra – čeká tě nová trasa 🌙`, `Come back tomorrow for a new route 🌙`)}</div></div>`
     : `<div class="route"><div class="rt">🌟 ${tt('Маршрут на сегодня', 'Маршрут на сёння', `Dnešní trasa`, `Today's route`)}</div>
         <div class="rs">${tt('Четыре мини-игры, около 10–15 минут', 'Чатыры міні-гульні, каля 10–15 хвілін', `Čtyři minihry, asi 10–15 minut`, `Four mini-games, about 10–15 minutes`)}</div>
+        ${isFinite(left) ? `<div class="rs">⏳ ${tt(`Осталось ${minsLeft()} мин на сегодня`, `Засталося ${minsLeft()} хв на сёння`, `Zbývá ${minsLeft()} min na dnes`, `${minsLeft()} min left today`)}</div>` : ''}
         <div class="rchips">${chips}</div>
         <button class="btn grn" data-a="route">${r.done.length ? `${tt('Дальше', 'Далей', `Dál`, `Next`)}: ${SK[r.skills[nx]].icon} ${P(SK[r.skills[nx]].name)}` : tt('Начать', 'Пачаць', `Začít`, `Start`)}</button></div>`;
   const cards = availSkills().map(k => { const sk = S.skills[k];
@@ -263,7 +275,7 @@ function rAwards() {
     <div class="grid">${ACH.map(a => `<div class="card${S.ach[a.id] ? ' on' : ' lock'}"><div class="em">${a.i}</div><div class="ttl">${P(a.t)}</div><small>${P(a.d)}</small></div>`).join('')}</div></div>` + tabs('awards');
 }
 
-/* ---------- профиль ---------- */
+/* ---------- профиль (детская часть) ---------- */
 function rProfile() {
   const L0 = lvl(S.xp), a = lvlStart(L0), b = lvlStart(L0 + 1), pr = Math.min(100, Math.round((S.xp - a) / (b - a) * 100));
   root.innerHTML = topBar() + `<div class="page">
@@ -271,15 +283,72 @@ function rProfile() {
     <div class="prof big">${mascot('')}<div class="pinfo"><div class="nm">${esc(S.name)}</div><div class="lv">${tt('Уровень', 'Узровень', `Úroveň`, `Level`)} ${L0} · ${S.xp} XP</div>
       <div class="bar xp"><i style="width:${pr}%"></i></div></div></div>
     <div class="row2"><button class="btn ghost sm" data-a="goto" data-t="shop">🎁 ${tt('Сменить друга и шляпу', 'Змяніць сябра і галаўны ўбор', `Změnit kamaráda a klobouk`, `Change friend and hat`)}</button></div>
+    <div class="row2"><button class="btn ghost sm" data-a="sound">${S.sound ? tt('🔊 Звук включён', '🔊 Гук уключаны', `🔊 Zvuk zapnutý`, `🔊 Sound on`) : tt('🔇 Звук выключен', '🔇 Гук выключаны', `🔇 Zvuk vypnutý`, `🔇 Sound off`)}</button></div>
+    <div class="sect">🔒</div>
+    <div class="row2"><button class="btn blu sm" data-a="parentzone">🔒 ${tt('Родительская зона', 'Бацькоўская зона', `Rodičovská zóna`, `Parents’ zone`)}</button></div>
+    <div class="rs" style="margin:0 2px">${tt('Отчёт, язык, аккаунт, лимит времени и сброс — только с PIN родителя.', 'Справаздача, мова, акаўнт, ліміт часу і скід — толькі з PIN бацькоў.', `Přehled, jazyk, účet, limit času a smazání – jen s PIN rodiče.`, `Report, language, account, time limit and reset – only with the parent PIN.`)}</div></div>` + tabs('');
+}
+
+/* ---------- PIN, родительская зона, «время вышло» ---------- */
+function rPin() {
+  const m = PN.mode, locked = Date.now() < pinLockUntil;
+  const title = m === 'set' ? tt('Придумайте PIN из 4 цифр', 'Прыдумайце PIN з 4 лічбаў', `Vymyslete PIN ze 4 číslic`, `Choose a 4-digit PIN`) : m === 'confirm' ? tt('Повторите PIN', 'Паўтарыце PIN', `Zopakujte PIN`, `Repeat the PIN`) : tt('Введите PIN родителя', 'Увядзіце PIN бацькоў', `Zadejte PIN rodiče`, `Enter the parent PIN`);
+  const err = locked ? tt(`Подождите ${Math.ceil((pinLockUntil - Date.now()) / 1000)} с`, `Пачакайце ${Math.ceil((pinLockUntil - Date.now()) / 1000)} с`, `Počkejte ${Math.ceil((pinLockUntil - Date.now()) / 1000)} s`, `Wait ${Math.ceil((pinLockUntil - Date.now()) / 1000)} s`) : (PN.err || '');
+  root.innerHTML = `<div class="pinpage"><button class="back" data-a="pinback">← ${tt('Назад', 'Назад', `Zpět`, `Back`)}</button><div style="font-size:54px;margin-top:6px">🔒</div><h2>${title}</h2>
+    <div class="dots">${[0, 1, 2, 3].map(i => `<i class="${i < PN.buf.length ? 'on' : ''}"></i>`).join('')}</div><div class="rs perr">${err}&nbsp;</div>
+    <div class="pad pinpad">${[1, 2, 3, 4, 5, 6, 7, 8, 9, 0].map(n => `<button data-a="pinkey" data-k="${n}">${n}</button>`).join('')}</div>
+    <div class="row2" style="justify-content:center"><button class="bk" data-a="pinkey" data-k="b" style="width:90px;height:48px">⌫</button></div>
+    ${m === 'enter' ? `<button class="btn ghost sm" data-a="pinforgot" style="width:auto;margin:6px auto">${tt('Забыли PIN?', 'Забыліся на PIN?', `Zapomněli jste PIN?`, `Forgot the PIN?`)}</button>` : ''}</div>`;
+}
+const LIMITS = [0, 10, 15, 20, 30, 45, 60];
+function rParent() {
+  const used = Math.round(((S.hist[today()] || {}).sec || 0) / 60), lim = S.parent.limit, ex = S.parent.extra.date === today() ? S.parent.extra.min : 0;
+  root.innerHTML = topBar() + `<div class="page"><button class="back" data-a="lockparent">🔒 ${tt('Закрыть', 'Закрыць', `Zavřít`, `Lock`)}</button>
+    <div class="h1">🔐 ${tt('Родительская зона', 'Бацькоўская зона', `Rodičovská zóna`, `Parents’ zone`)}</div>
     <div class="row2"><button class="btn blu sm" data-a="goto" data-t="report">📊 ${tt('Отчёт для родителя', 'Справаздача для бацькоў', `Přehled pro rodiče`, `Parent report`)}</button></div>
+    <div class="sect">⏱ ${tt('Время занятий в день', 'Час заняткаў у дзень', `Čas cvičení za den`, `Daily practice time`)}</div>
+    <div class="chips">${LIMITS.map(m => `<button class="chip2${lim === m ? ' on' : ''}" data-a="limit" data-m="${m}">${m ? `${m} ${tt('мин', 'хв', `min`, `min`)}` : tt('Без лимита', 'Без ліміту', `Bez limitu`, `No limit`)}</button>`).join('')}</div>
+    <div class="rs" style="margin:4px 2px 8px">${tt(`Сегодня: ${used} мин`, `Сёння: ${used} хв`, `Dnes: ${used} min`, `Today: ${used} min`)}${lim ? ` ${tt('из', 'з', `z`, `of`)} ${lim + ex}` : ''}. ${tt('Когда время выйдет, занятие мягко завершится, и ребёнок увидит экран отдыха.', 'Калі час скончыцца, занятак мякка завяршыцца, і дзіця ўбачыць экран адпачынку.', `Až čas vyprší, trénink se jemně ukončí a dítě uvidí obrazovku odpočinku.`, `When time runs out the session ends gently and the child sees a rest screen.`)}</div>
     <div class="sect">${tt('Аккаунт', 'Акаўнт', `Účet`, `Account`)}</div>
     ${fbUser ? `<div class="row2"><div class="cloud">☁️ ${esc(fbUser.email || '')}<small>${cloudText()}</small></div><button class="btn ghost sm" data-a="logout" style="width:auto">${tt('Выйти', 'Выйсці', `Odhlásit`, `Sign out`)}</button></div>`
       : `<div class="row2"><button class="btn blu sm" data-a="login">🔑 ${tt('Войти через Google и сохранить прогресс', 'Увайсці праз Google і захаваць прагрэс', `Přihlásit se přes Google a uložit postup`, `Sign in with Google and save progress`)}</button></div>`}
-    <div class="sect">${tt('Настройки', 'Налады', `Nastavení`, `Settings`)}</div>
-    <div class="row2"><button class="btn ghost sm" data-a="sound">${S.sound ? tt('🔊 Звук включён', '🔊 Гук уключаны', `🔊 Zvuk zapnutý`, `🔊 Sound on`) : tt('🔇 Звук выключен', '🔇 Гук выключаны', `🔇 Zvuk vypnutý`, `🔇 Sound off`)}</button></div>
     <div class="sect">🌐 ${tt('Язык', 'Мова', 'Jazyk', 'Language')}</div>
     <div class="pets lang">${Object.entries(LANG_NAMES).map(([c, n]) => `<button class="${S.lang === c ? 'on' : ''}" data-a="lang" data-l="${c}">${n}</button>`).join('')}</div>
-    <div class="row2"><button class="btn ghost sm" data-a="rename">✏️ ${tt('Сменить имя', 'Змяніць імя', `Změnit jméno`, `Change name`)}</button><button class="btn ghost sm" data-a="reset">🗑 ${tt('Начать заново', 'Пачаць зноў', `Začít znovu`, `Start over`)}</button></div></div>` + tabs('');
+    <div class="sect">${tt('Настройки', 'Налады', `Nastavení`, `Settings`)}</div>
+    <div class="row2"><button class="btn ghost sm" data-a="rename">✏️ ${tt('Сменить имя', 'Змяніць імя', `Změnit jméno`, `Change name`)}</button><button class="btn ghost sm" data-a="changepin">🔢 ${tt('Сменить PIN', 'Змяніць PIN', `Změnit PIN`, `Change PIN`)}</button></div>
+    <div class="row2"><button class="btn ghost sm" data-a="reset">🗑 ${tt('Начать заново', 'Пачаць зноў', `Začít znovu`, `Start over`)}</button></div></div>` + tabs('');
+}
+function rTimeup() {
+  root.innerHTML = `<div class="result"><div style="font-size:70px">🌙</div><h1>${tt('На сегодня время вышло', 'На сёння час скончыўся', `Čas pro dnešek vypršel`, `Time is up for today`)}</h1>
+    <div class="sub">${tt('Отдых тоже помогает учиться. Приходи завтра!', 'Адпачынак таксама дапамагае вучыцца. Прыходзь заўтра!', `Odpočinek taky pomáhá při učení. Přijď zítra!`, `Rest helps learning too. Come back tomorrow!`)}</div>
+    <div class="mascot big" style="margin:18px auto"><span class="hat">${S.hat}</span><span class="pet">${S.pet}</span></div>
+    <div class="acts"><button class="btn grn" data-a="home">${tt('На главный экран', 'На галоўны экран', `Na hlavní obrazovku`, `Home`)}</button>
+      <button class="btn ghost" data-a="timeupparent">🔒 ${tt('Родителю: добавить время', 'Бацькам: дадаць час', `Rodiči: přidat čas`, `Parent: add time`)}</button></div></div>`;
+}
+function pinEnter(key) {
+  if (Date.now() < pinLockUntil) { rPin(); return; }
+  if (key === 'b') PN.buf = PN.buf.slice(0, -1); else if (PN.buf.length < 4) PN.buf += key;
+  PN.err = ''; if (PN.buf.length < 4) { sfx.tap(); rPin(); return; }
+  const buf = PN.buf; PN.buf = '';
+  if (PN.mode === 'enter') {
+    if (Skills.checkPin(S.parent, buf)) { pinFails = 0; parentOK = true; sfx.ok(); if (PN.next === 'extra') { parentOK = false; extraTimeModal(); } else { R = PN.next || 'parent'; render(); } return; }
+    pinFails++; sfx.no(); PN.err = tt('Неверный PIN', 'Няправільны PIN', `Špatný PIN`, `Wrong PIN`);
+    if (pinFails >= 3) { pinFails = 0; pinLockUntil = Date.now() + 30000; } rPin(); return;
+  }
+  if (PN.mode === 'set') { PN.first = buf; PN.mode = 'confirm'; sfx.tap(); rPin(); return; }
+  if (buf === PN.first) { Skills.setPin(S.parent, buf, Math.random().toString(36).slice(2, 10)); save(); parentOK = true; sfx.ok(); toast(tt('PIN сохранён ✓', 'PIN захаваны ✓', `PIN uložen ✓`, `PIN saved ✓`)); R = PN.next === 'extra' ? 'parent' : (PN.next || 'parent'); render(); return; }
+  PN.mode = 'set'; PN.first = ''; PN.err = tt('PIN не совпал. Попробуйте ещё раз.', 'PIN не супаў. Паспрабуйце яшчэ раз.', `PIN se neshoduje. Zkuste to znovu.`, `The PINs did not match. Try again.`); sfx.no(); rPin();
+}
+function extraTimeModal() {
+  const add = m => () => { const e = S.parent.extra; S.parent.extra = { date: today(), min: (e.date === today() ? e.min : 0) + m }; save(); toast(tt('Время добавлено ✓', 'Час дададзены ✓', `Čas přidán ✓`, `Time added ✓`)); R = 'home'; render(); };
+  modal({ icon: '⏱', title: tt('Добавить время на сегодня', 'Дадаць час на сёння', `Přidat čas na dnes`, `Add time for today`), text: '',
+    btns: [10, 20, 30].map(m => ({ t: `+${m} ${tt('мин', 'хв', `min`, `min`)}`, c: 'grn', f: add(m) })).concat([{ t: tt('Отмена', 'Адмена', `Zrušit`, `Cancel`), c: 'ghost', f: () => { R = 'timeup'; render(); } }]) });
+}
+/* занятие, прерванное лимитом: мягко завершаем, сохранив всё, что уже решено */
+function endByLimit() {
+  clearTimeout(L.timer); tickTime();
+  if (L.counted > 0) { L.early = true; return finish(); }
+  Skills.addHist(S.hist, today(), { sec: L.sec }); save(); R = 'timeup'; render();
 }
 
 /* ---------- отчёт для родителя (F9): неделя, паспорт навыков, совет ---------- */
@@ -340,7 +409,7 @@ function rReport() {
   const cand = av.filter(k => S.skills[k].n >= 10).sort((x, y) => (S.skills[x].lvl - S.skills[y].lvl) || (S.skills[x].ok / S.skills[x].n - S.skills[y].ok / S.skills[y].n));
   const weak = cand[0], enough = c.ses > 0 || S.stat.lessons >= 3;
   root.innerHTML = topBar() + `<div class="page report">
-    <button class="back" data-a="goto" data-t="profile">← ${tt('Назад', 'Назад', `Zpět`, `Back`)}</button>
+    <button class="back" data-a="goto" data-t="parent">← ${tt('Назад', 'Назад', `Zpět`, `Back`)}</button>
     <div class="h1">📊 ${tt('Отчёт для родителя', 'Справаздача для бацькоў', `Přehled pro rodiče`, `Parent report`)}</div>
     <div class="rs" style="margin:-6px 2px 10px">${esc(S.name)} · ${dayLabel(w.days[0].date, { day: 'numeric', month: 'short' })} – ${dayLabel(t0, { day: 'numeric', month: 'short' })}</div>
     <div class="rp-cards">
@@ -374,6 +443,7 @@ function rChess() {
 
 /* ---------- занятие ---------- */
 function startSession(skill, opts = {}) {
+  if (limitHit()) { R = 'timeup'; render(); return; }
   document.querySelectorAll('.confetti').forEach(e => e.remove());
   if (L) clearTimeout(L.timer);
   const lv = S.skills[skill].lvl, n = opts.n || QPL;
@@ -487,6 +557,7 @@ function next() {
   clearTimeout(L.timer); tickTime();
   L.queue.shift(); L.answered = false; L.sel = null; L.input = ''; L.hint = false; L.studied = false;
   if (!L.queue.length) return finish();
+  if (limitHit()) return endByLimit();
   rLesson();
 }
 
@@ -498,7 +569,7 @@ function finish() {
   if (L.lesson) S.chessLessons[L.lesson] = Math.max(S.chessLessons[L.lesson] || 0, stars);
   S.starsTotal += stars; S.stat.lessons++; if (perfect) S.stat.perfect++; S.stat.bestCombo = Math.max(S.stat.bestCombo, L.bestCombo);
   Skills.addHist(S.hist, today(), { sec: L.sec, ses: 1 }); Skills.pruneHist(S.hist, today());
-  if (L.route && S.route) {
+  if (L.route && S.route && !L.early) {
     const r = S.route; if (!r.done.includes(L.skill)) r.done.push(L.skill);
     r.tot = r.tot || { xp: 0, coins: 0, ok: 0, total: 0, stars: 0 };
     if (r.done.length >= r.skills.length && !r.finished) {
@@ -512,9 +583,9 @@ function finish() {
   if (lvAfter > lvBefore) { S.coins += 10 * (lvAfter - lvBefore); events.push({ i: '⬆️', t: tt(`Новый уровень: ${lvAfter}! +${10 * (lvAfter - lvBefore)} 🪙`, `Новы ўзровень: ${lvAfter}! +${10 * (lvAfter - lvBefore)} 🪙`, `Nová úroveň: ${lvAfter}! +${10 * (lvAfter - lvBefore)} 🪙`, `New level: ${lvAfter}! +${10 * (lvAfter - lvBefore)} 🪙`) }); }
   ACH.forEach(a => { if (!S.ach[a.id] && a.ok(S)) { S.ach[a.id] = today(); S.coins += 10; events.push({ i: a.i, t: tt(`Достижение «${P(a.t)}»! +10 🪙`, `Дасягненне «${P(a.t)}»! +10 🪙`, `Úspěch „${P(a.t)}“! +10 🪙`, `Achievement "${P(a.t)}"! +10 🪙`) }); } });
   save(); sfx.win(); confetti(routeDone ? 70 : 44);
-  const nx = S.route && L.route ? S.route.skills.find(k => !S.route.done.includes(k)) : null;
+  const nx = S.route && L.route && !L.early ? S.route.skills.find(k => !S.route.done.includes(k)) : null;
   const li = L.lesson ? Chess.LESSONS.findIndex(x => x.id === L.lesson) : -1;
-  RES = { skill: L.skill, lesson: L.lesson, nextLesson: li >= 0 && li < Chess.LESSONS.length - 1 ? Chess.LESSONS[li + 1].id : null, stars, xp, coins, events, right: ok, total, route: L.route, routeDone, next: nx, tot: S.route && S.route.tot };
+  RES = { early: !!L.early, skill: L.skill, lesson: L.lesson, nextLesson: li >= 0 && li < Chess.LESSONS.length - 1 ? Chess.LESSONS[li + 1].id : null, stars, xp, coins, events, right: ok, total, route: L.route, routeDone, next: nx, tot: S.route && S.route.tot };
   R = 'result'; render();
 }
 function rResult() {
@@ -534,11 +605,12 @@ function rResult() {
     <div class="sub">${tt(`Верно с первого раза: ${r.right} из ${r.total}`, `Правільна з першага разу: ${r.right} з ${r.total}`, `Správně na první pokus: ${r.right} z ${r.total}`, `Right first time: ${r.right} of ${r.total}`)}</div>
     <div class="stars">${[1, 2, 3].map(i => `<span class="${i <= r.stars ? 'on' : ''}">⭐</span>`).join('')}</div>
     <div class="rew"><div><b>+${r.xp}</b>XP</div><div><b>+${r.coins}</b>${tt('монет', 'манет', `mincí`, `coins`)} 🪙</div><div><b>${k.icon} ${S.skills[r.skill].lvl}</b>${tt('уровень навыка', 'узровень навыку', `úroveň dovednosti`, `skill level`)}</div></div>
+    ${r.early ? `<div class="evt">🌙 ${tt('Время на сегодня вышло — отдохни. Всё, что решено, сохранено.', 'Час на сёння скончыўся — адпачні. Усё, што вырашана, захавана.', `Čas pro dnešek vypršel – odpočiň si. Vše vyřešené je uloženo.`, `Time is up for today – have a rest. Everything you solved is saved.`)}</div>` : ''}
     ${r.events.map(e => `<div class="evt">${e.i} ${e.t}</div>`).join('')}
     <div class="acts">${r.route && r.next ? `<button class="btn grn" data-a="route">${tt('Дальше', 'Далей', `Dál`, `Next`)}: ${SK[r.next].icon} ${P(SK[r.next].name)} ▶</button>` : ''}
       ${r.nextLesson ? `<button class="btn grn" data-a="clesson" data-id="${r.nextLesson}">${tt('Следующий урок ▶', 'Наступны ўрок ▶', `Další lekce ▶`, `Next lesson ▶`)}</button>` : ''}
       <button class="btn ${(r.route && r.next) || r.nextLesson ? 'ghost' : 'grn'}" data-a="${r.lesson ? 'chess' : 'home'}">${r.lesson ? tt('К урокам и задачам', 'Да ўрокаў і задач', `K lekcím a úlohám`, `Back to lessons`) : tt('На главный экран', 'На галоўны экран', `Na hlavní obrazovku`, `Home`)}</button>
-      ${r.route ? '' : `<button class="btn ghost" data-a="again">${tt('Ещё раз', 'Яшчэ раз', `Ještě jednou`, `Again`)}</button>`}</div></div>`;
+      ${r.route || r.early ? '' : `<button class="btn ghost" data-a="again">${tt('Ещё раз', 'Яшчэ раз', `Ještě jednou`, `Again`)}</button>`}</div></div>`;
 }
 
 /* ======================== Облако (Firebase): вход через Google и сохранение прогресса ======================== */
@@ -586,6 +658,7 @@ function mergeStates(a, b) {
   m.chessLessons = {}; for (const k of new Set([...Object.keys(a.chessLessons || {}), ...Object.keys(b.chessLessons || {})])) m.chessLessons[k] = Math.max((a.chessLessons || {})[k] || 0, (b.chessLessons || {})[k] || 0);
   m.skills = Skills.mergeSkills(a.skills, b.skills); m.hist = Skills.mergeHist(a.hist, b.hist);
   m.route = (a.route && b.route && a.route.date === b.route.date) ? (a.route.done.length >= b.route.done.length ? a.route : b.route) : nw.route;
+  m.parent = Skills.mergeParent(Skills.fixParent(nw.parent), Skills.fixParent(ol.parent));
   m.recent = union(ol.recent, nw.recent).slice(-150);
   for (const k of [...OLD_KEYS, 'done']) delete m[k];
   m.lang = a.lang; m.sound = a.sound; m.ts = Math.max(a.ts || 0, b.ts || 0);
@@ -607,6 +680,7 @@ async function onAuth(user) {
   try {
     const snap = await fbDb.collection('users').doc(user.uid).get(), remote = snap.exists ? (snap.data() || {}).s : null;
     if (remote) { S = mergeStates(S, remote); S.lang = langOk(S.lang); setLang(S.lang); document.documentElement.lang = S.lang; document.title = tt('Умники', 'Разумнікі', `Chytráci`, `Smart Kids`); }
+    if (pinResetPending) { pinResetPending = false; S.parent.pin = ''; S.parent.salt = ''; PN = { mode: 'set', buf: '', first: '', next: 'parent', back: 'profile', err: '' }; R = 'pin'; }
     save({ nopush: true }); await pushNow(); setCloud('ok');
     if (S.name && R === 'onboard') R = 'home';
     if (R !== 'lesson' && R !== 'result') render();
@@ -708,6 +782,17 @@ const A = {
       btns: [{ t: tt('Понятно', 'Зразумела', `Jasné`, `Got it`), c: 'ghost', f: () => {} }] });
   },
   print() { window.print(); },
+  parentzone() { sfx.tap(); PN = { mode: Skills.hasPin(S.parent) ? 'enter' : 'set', buf: '', first: '', next: 'parent', back: 'profile', err: '' }; R = 'pin'; render(); },
+  timeupparent() { sfx.tap(); PN = { mode: Skills.hasPin(S.parent) ? 'enter' : 'set', buf: '', first: '', next: 'extra', back: 'timeup', err: '' }; R = 'pin'; render(); },
+  changepin() { PN = { mode: 'set', buf: '', first: '', next: 'parent', back: 'parent', err: '' }; parentOK = true; R = 'pin'; render(); },
+  pinkey(el) { if (PN) pinEnter(el.dataset.k); },
+  pinback() { const b = (PN && PN.back) || 'profile'; if (b === 'parent') parentOK = true; R = b; render(); },
+  pinforgot() {
+    modal({ icon: '🔑', title: tt('Забыли PIN?', 'Забыліся на PIN?', `Zapomněli jste PIN?`, `Forgot the PIN?`), text: tt('Сбросить PIN можно, войдя через Google в аккаунт родителя. Прогресс сохранится.', 'Скінуць PIN можна, увайшоўшы праз Google у акаўнт бацькоў. Прагрэс захаваецца.', `PIN lze obnovit přihlášením přes Google do účtu rodiče. Postup zůstane zachován.`, `You can reset the PIN by signing in with the parent's Google account. Progress is kept.`),
+      btns: [{ t: tt('Войти через Google', 'Увайсці праз Google', `Přihlásit se přes Google`, `Sign in with Google`), c: 'blu', f: () => { pinResetPending = true; login(); } }, { t: tt('Отмена', 'Адмена', `Zrušit`, `Cancel`), c: 'ghost', f: () => {} }] });
+  },
+  lockparent() { parentOK = false; R = 'profile'; render(); },
+  limit(el) { S.parent.limit = +el.dataset.m; save(); sfx.tap(); render(); },
   sound() { S.sound = !S.sound; save(); sfx.tap(); render(); },
   rename() { const n = (prompt(tt('Как тебя зовут?', 'Як цябе клічуць?', `Jak se jmenuješ?`, `What is your name?`), S.name) || '').trim(); if (n) { S.name = n.slice(0, 14); save(); render(); } },
   reset() { modal({ icon: '🗑', title: tt('Начать заново?', 'Пачаць зноў?', 'Začít znovu?', 'Start over?'), text: tt('Весь прогресс, монеты и питомцы будут удалены' + (fbUser ? ' (и в облаке тоже).' : '.'), 'Увесь прагрэс, манеты і гадаванцы будуць выдалены' + (fbUser ? ' (і ў воблаку таксама).' : '.'),
@@ -740,5 +825,5 @@ up.setAttribute('aria-label', tt('Наверх', 'Угару', `Nahoru`, `Up`));
 up.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
 window.addEventListener('scroll', () => { up.hidden = !(window.scrollY > 400 && ['home', 'shop', 'awards'].includes(R)); }, { passive: true });
 if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(() => {});
-window.__umniki = { GENS, S: () => S, L: () => L, A, buildSet, skillPool, sigOf, Chess, mergeStates, defState, clone, SK, availSkills, render, save, setR: v => { R = v; } };
+window.__umniki = { GENS, S: () => S, L: () => L, A, buildSet, skillPool, sigOf, Chess, mergeStates, defState, clone, SK, availSkills, render, save, setR: v => { R = v; }, unlockParent: () => { parentOK = true; }, clearPinLock: () => { pinLockUntil = 0; pinFails = 0; }, limitLeft };
 })();

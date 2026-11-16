@@ -105,7 +105,29 @@ function ensureRoute(S, today, avail, rnd) {
   return S.route;
 }
 
-const api = { SKILLS, SKILL_OF, MAX_LVL, WIN, UP_AT, DOWN_AT, ROUTE_LEN, HIST_DAYS, dayStr, parseDay, addDays, newSkills, fixSkills, recordResult, starsFor,
+
+/* ---------- родительская зона: PIN и дневной лимит времени (F10) ---------- */
+const newParent = () => ({ pin: '', salt: '', limit: 0, extra: { date: '', min: 0 } });
+const fixParent = p => { p = Object.assign(newParent(), p || {}); p.limit = Math.max(0, Math.min(180, p.limit | 0)); p.extra = Object.assign({ date: '', min: 0 }, p.extra || {}); return p; };
+/* Простой солёный хэш (cyrb53): нужен, чтобы не хранить PIN открытым текстом. Это защита «от ребёнка», а не от взломщика: 4 цифры подбираются мгновенно. */
+function pinHash(pin, salt) {
+  const str = salt + '|' + pin + '|' + salt; let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+  for (let i = 0; i < str.length; i++) { const ch = str.charCodeAt(i); h1 = Math.imul(h1 ^ ch, 2654435761); h2 = Math.imul(h2 ^ ch, 1597334677); }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909); h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
+}
+const hasPin = p => !!p.pin;
+const checkPin = (p, pin) => !!p.pin && pinHash(String(pin), p.salt) === p.pin;
+const setPin = (p, pin, salt) => { p.salt = salt; p.pin = pinHash(String(pin), salt); return p; };
+/* Сколько секунд осталось на сегодня (Infinity — лимита нет). live — время текущего, ещё не записанного занятия. */
+function limitLeft(parent, hist, today, live = 0) {
+  if (!parent.limit) return Infinity;
+  const extra = parent.extra && parent.extra.date === today ? parent.extra.min : 0, used = ((hist[today] || {}).sec || 0) + live;
+  return (parent.limit + extra) * 60 - used;
+}
+const mergeParent = (nw, ol) => JSON.parse(JSON.stringify(nw.pin || !ol.pin ? nw : ol));   // побеждает копия, где PIN уже задан
+
+const api = { newParent, fixParent, pinHash, hasPin, checkPin, setPin, limitLeft, mergeParent, SKILLS, SKILL_OF, MAX_LVL, WIN, UP_AT, DOWN_AT, ROUTE_LEN, HIST_DAYS, dayStr, parseDay, addDays, newSkills, fixSkills, recordResult, starsFor,
   addHist, pruneHist, daysPlayedIn, daysPlayedTotal, lastPlayed, mergeHist, mergeSkills, weekStats, pickRoute, ensureRoute };
 if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Skills = api;
 })(typeof window !== 'undefined' ? window : globalThis);
