@@ -205,3 +205,11 @@ h1,h2,h3,.h1,.rt,.nm,.result h1{font-family:var(--disp);font-weight:700;letter-s
 
 .chips.voices .vc{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .share a.chip2{color:var(--ink);text-decoration:none;display:inline-flex;align-items:center}
+
+/* «Мои друзья» */
+.friendsbig{display:flex;align-items:center;gap:14px;background:var(--sun);border:var(--edge);border-radius:24px;box-shadow:var(--lift);padding:14px 16px;margin:6px 0 12px}
+.friendsbig b{font-family:var(--disp);font-size:44px;line-height:1}.friendsbig span{font-size:15px;line-height:1.25}
+.rwdrow{display:flex;align-items:center;gap:12px;background:#fff;border:var(--edge);border-radius:20px;box-shadow:var(--lift-s);padding:8px 12px;margin-bottom:10px}
+.rwdrow.done{background:#d6fbef}.rwdrow:not(.done) .avatar,.rwdrow:not(.done) .rwd{filter:grayscale(1);opacity:.5}
+.rwdrow .mascot{width:60px;height:60px;margin:0}.rwd{font-size:34px;width:60px;text-align:center}
+.rwdt{flex:1}.rwdt b{display:block;font-size:15px;font-family:var(--disp);font-weight:700}.rwdt small{color:var(--mut);font-size:13px}.rwdm{font-size:22px}

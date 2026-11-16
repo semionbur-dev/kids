@@ -7,7 +7,8 @@ let fails = 0; const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); 
 const U = (p, f, a) => p.evaluate(f, a);
 const MOCK = `window.firebase=(function(){let cb=null,user=null;
 const auth={onAuthStateChanged(f){cb=f;setTimeout(()=>f(user),0)},async signInWithPopup(){user={uid:window.__uid,email:'t@example.com',async delete(){user=null;cb&&cb(null)}};cb&&cb(user)},async signOut(){user=null;cb&&cb(null)}};
-const docs=(path)=>({path,async get(){const d=await window.__dbGet(path);return{exists:!!d,data:()=>d,id:path.split('/').pop()}},async set(v){await window.__dbSet(path,JSON.parse(JSON.stringify(v)))},async delete(){await window.__dbDel(path)},collection(n){return colls(path+'/'+n)}});
+const deny=async()=>{if(window.__deny){const e=new Error('denied');e.code='permission-denied';throw e}};
+const docs=(path)=>({path,async get(){await deny();const d=await window.__dbGet(path);return{exists:!!d,data:()=>d,id:path.split('/').pop()}},async set(v){await window.__dbSet(path,JSON.parse(JSON.stringify(v)))},async delete(){await window.__dbDel(path)},collection(n){return colls(path+'/'+n)}});
 const colls=(path)=>({doc(id){return docs(path+'/'+id)},async get(){const arr=await window.__dbList(path);return{size:arr.length,docs:arr.map(x=>({id:x,exists:true}))}}});
 const fs={collection(c){return colls(c)},batch(){const ops=[];return{set(d,v){ops.push([d,v]);return this},async commit(){const wanted=await window.__dbBatchCheck(ops.map(o=>o[0].path));if(!wanted)throw new Error('denied');for(const [d,v] of ops)await d.set(v)}}}};
 const f={initializeApp(){},auth:()=>auth,firestore:()=>fs};f.auth.GoogleAuthProvider=function(){};f.firestore.FieldValue={serverTimestamp:()=>'TS'};return f})();`;
@@ -76,6 +77,14 @@ const f={initializeApp(){},auth:()=>auth,firestore:()=>fs};f.auth.GoogleAuthProv
   /* свой код нельзя использовать как приглашение */
   await A.evaluate(() => { const u = window.__umniki; u.FAM().ref.by = u.FAM().ref.code; u.FAM().ref.sent = false; }); await A.evaluate(() => window.__umniki.registerReferral()); await A.waitForTimeout(200);
   ok(!store.has('referredBy/uA'), 'нельзя позвать самого себя');
+
+  /* 5б. экран «Мои друзья» и подсказка, если правила Firestore не опубликованы */
+  await A.evaluate(() => { const u = window.__umniki; u.unlockParent(); u.setR('parent'); u.render(); u.A.friends(); }); await A.waitForTimeout(400);
+  const fr = await A.evaluate(() => ({ big: document.querySelector('.friendsbig b').innerText, rows: [...document.querySelectorAll('.rwdrow')].map(r => r.classList.contains('done')), txt: document.body.innerText }));
+  ok(fr.big === '5' && fr.rows.join() === 'true,true,true' && /Все награды открыты/.test(fr.txt), 'экран «Мои друзья»: 5 друзей, все три награды открыты');
+  await A.evaluate(() => { window.__deny = true; }); await A.evaluate(() => window.__umniki.refreshInvites()); await A.waitForTimeout(300);
+  ok(await A.evaluate(() => /не опубликованы правила/.test(document.body.innerText)), 'если доступ закрыт правилами, родитель видит понятную подсказку, а не нули');
+  await A.evaluate(() => { window.__deny = false; window.__umniki.A.friendsback(); });
 
   /* 6. приватность и удаление */
   const priv = await A.evaluate(() => { window.__umniki.A.privacy(); return document.querySelectorAll('.pv').length; }); ok(priv === 7, 'политика приватности дополнена разделом о приглашениях');
