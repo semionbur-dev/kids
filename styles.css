@@ -309,3 +309,32 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;paddin
 .tag.lg{margin-left:6px;background:#8d8fa8}
 .lfoot .glb{width:auto;flex:none;font-size:20px;padding:10px 14px}
 .lfoot .glb.on{background:#e3f5ff;border-color:var(--blu);color:var(--blu-d)}
+
+/* ---------- доступность и удобство нажатий (аудит по mobile-app-ui-design + WCAG AA) ---------- */
+:root{--mut:#5f6280;--pri-t:#5b4de0;--grn-b:#2f8a00;--grn-bd:#216600;--blu-b:#0b78b8;--blu-bd:#085c8f;--red-b:#d63636;--red-bd:#a82828;--pri-b:#6454e8}
+.btn{background:var(--pri-b)}
+.btn.grn{background:var(--grn-b);border-bottom-color:var(--grn-bd)}
+.btn.blu{background:var(--blu-b);border-bottom-color:var(--blu-bd)}
+.btn.red{background:var(--red-b);border-bottom-color:var(--red-bd)}
+.btn.ghost{background:#fff;color:var(--pri-t)}
+.btn.yel{color:#3d3000}
+.btn[disabled]{color:#6b6b82;background:#e5e5ef}
+.btn,.btn.sm,.card .btn{min-height:44px}
+.pill{min-height:44px}.pill small{font-size:12px}
+.pill.fire b{color:#b34f00}.pill.coin b{color:#8a6200}.pill.lv b{color:var(--pri-t)}
+.back{min-height:44px;color:var(--pri-t)}
+.lhead .x{width:44px;height:44px;font-size:26px}
+.chip2{min-height:44px}
+.pets.lang button,.pets.lang button.on{min-height:44px}
+.tab{font-size:12px;min-height:52px;color:var(--mut)}.tab.on{color:var(--pri-t)}
+.sect{color:var(--mut)}
+.skc b,.skrow .nm b,.topic h2{color:color-mix(in srgb,var(--c) 62%,#000)}
+.chess .cap,.node .st{font-size:12px}
+.skc small,.rs,.lv,.pill small,.bl{color:var(--mut)}
+.bl{font-size:12px}
+:focus-visible{outline:3px solid var(--pri-t);outline-offset:2px;border-radius:8px}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+.card small,.bcol .bv,.bcol .bl,.pieces div,.node .st{font-size:12px}
+:root{--grn-b:#277d00}
+.chip2.on{background:var(--pri-b)}
+.tag{color:color-mix(in srgb,var(--c) 62%,#000)}

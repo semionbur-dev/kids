@@ -1,0 +1,1 @@
+Источник: https://github.com/ceorkm/mobile-app-ui-design (в README заявлена MIT, файла LICENSE в репозитории нет). Скопировано по просьбе владельца репозитория.

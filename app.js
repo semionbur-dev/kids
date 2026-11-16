@@ -207,7 +207,7 @@ function rOnboard() {
   root.innerHTML = `<div class="onb"><div style="font-size:70px">🎓</div><h1>${tt('Умники', 'Разумнікі', `Chytráci`, `Smart Kids`)}</h1>
     <div class="pets lang">${Object.entries(LANG_NAMES).map(([c, n]) => `<button class="${S.lang === c ? 'on' : ''}" data-a="lang" data-l="${c}">${n}</button>`).join('')}</div>
     <p>${tt('Математика и логика в игре! Как тебя зовут?', 'Матэматыка і логіка ў гульні! Як цябе клічуць?', `Matematika a logika hrou! Jak se jmenuješ?`, `Maths and logic as a game! What is your name?`)}</p>
-    <input id="nm" maxlength="14" placeholder="${tt('Твоё имя', 'Тваё імя', `Tvoje jméno`, `Your name`)}" autocomplete="off" value="${esc(S.name)}">
+    <input id="nm" aria-label="${tt('Твоё имя', 'Тваё імя', `Tvoje jméno`, `Your name`)}" maxlength="14" placeholder="${tt('Твоё имя', 'Тваё імя', `Tvoje jméno`, `Your name`)}" autocomplete="off" value="${esc(S.name)}">
     <p>${tt('Выбери себе друга:', 'Абяры сабе сябра:', `Vyber si kamaráda:`, `Choose a friend:`)}</p>
     <div class="pets">${['🐱', '🐶', '🐰'].map(e => `<button class="${ob.pet === e ? 'on' : ''}" data-a="obpet" data-e="${e}">${e}</button>`).join('')}</div>
     <button class="btn ghost sm" data-a="login">🔑 ${tt('У меня уже есть профиль — войти через Google', 'У мяне ўжо ёсць профіль — увайсці праз Google', `Už mám profil – přihlásit se přes Google`, `I already have a profile – sign in with Google`)}</button>
