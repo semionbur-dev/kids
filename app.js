@@ -459,6 +459,11 @@ setInterval(() => {
 
 /* ======================== Запуск ======================== */
 load(); render();
+try { if (window.top !== window.self) document.documentElement.classList.add('embed'); } catch (e) { document.documentElement.classList.add('embed'); }
+const up = $('#totop');
+up.setAttribute('aria-label', tt('Наверх', 'Угару'));
+up.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+window.addEventListener('scroll', () => { up.hidden = !(window.scrollY > 400 && ['home', 'shop', 'awards'].includes(R)); }, { passive: true });
 if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(() => {});
 window.__umniki = { GENS, S: () => S, L: () => L, A, buildLesson, sigOf };
 })();
