@@ -1,6 +1,7 @@
 'use strict';
 (() => {
 const { GENS, LANGS, rnd, pick, shuffle, esc, t: tt, setLang, getLang, generate } = window.Gens;
+const BUILD = 'v19';
 const P = pair => pair[LANGS.indexOf(getLang())];
 const LANG_NAMES = { be: 'Беларуская', ru: 'Русский', cs: 'Čeština', en: 'English' };
 const langOk = l => (LANGS.includes(l) ? l : 'ru');
@@ -469,7 +470,7 @@ function rParent() {
     <div class="row2"><button class="btn ghost sm" data-a="glossary">📖 ${tt('Словарик', 'Слоўнік', `Slovníček`, `Glossary`)}</button></div>
     <div class="sect">${tt('Настройки', 'Налады', `Nastavení`, `Settings`)}</div>
     <div class="row2"><button class="btn ghost sm" data-a="rename">✏️ ${tt('Сменить имя', 'Змяніць імя', `Změnit jméno`, `Change name`)}</button><button class="btn ghost sm" data-a="changepin">🔢 ${tt('Сменить PIN', 'Змяніць PIN', `Změnit PIN`, `Change PIN`)}</button></div>
-    <div class="row2"><button class="btn ghost sm" data-a="reset">🗑 ${tt('Начать заново', 'Пачаць зноў', `Začít znovu`, `Start over`)}</button></div></div>` + tabs('');
+    <div class="row2"><button class="btn ghost sm" data-a="reset">🗑 ${tt('Начать заново', 'Пачаць зноў', `Začít znovu`, `Start over`)}</button></div><div class="rs" style="text-align:center;margin-top:10px">${tt('Версия', 'Версія', `Verze`, `Version`)} ${BUILD}</div></div>` + tabs('');
 }
 function rTimeup() {
   root.innerHTML = `<div class="result"><div style="font-size:70px">🌙</div><h1>${tt('На сегодня время вышло', 'На сёння час скончыўся', `Čas pro dnešek vypršel`, `Time is up for today`)}</h1>
@@ -1136,6 +1137,10 @@ const up = $('#totop');
 up.setAttribute('aria-label', tt('Наверх', 'Угару', `Nahoru`, `Up`));
 up.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
 window.addEventListener('scroll', () => { up.hidden = !(window.scrollY > 400 && ['home', 'shop', 'awards'].includes(R)); }, { passive: true });
-if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(() => {});
-window.__umniki = { load, exportData, Avatar: window.Avatar, cloudErase, glossify, FAM: () => FAM, useKid, mergeFam, norm, setFam, famJSON, GENS, S: () => S, L: () => L, A, buildSet, skillPool, sigOf, Chess, mergeStates, defState, clone, SK, availSkills, render, save, setR: v => { R = v; }, unlockParent: () => { parentOK = true; }, clearPinLock: () => { pinLockUntil = 0; pinFails = 0; }, limitLeft };
+if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+  const had = !!navigator.serviceWorker.controller; let reloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (had && !reloaded && R !== 'lesson') { reloaded = true; location.reload(); } });   // вышла новая версия — подхватываем сразу
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(r => r.update().catch(() => {})).catch(() => {});
+}
+window.__umniki = { BUILD, load, exportData, Avatar: window.Avatar, cloudErase, glossify, FAM: () => FAM, useKid, mergeFam, norm, setFam, famJSON, GENS, S: () => S, L: () => L, A, buildSet, skillPool, sigOf, Chess, mergeStates, defState, clone, SK, availSkills, render, save, setR: v => { R = v; }, unlockParent: () => { parentOK = true; }, clearPinLock: () => { pinLockUntil = 0; pinFails = 0; }, limitLeft };
 })();
