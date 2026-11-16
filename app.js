@@ -52,7 +52,7 @@ const ACH = [
   { id: 'hat', i: '🎩', t: ['Модник', 'Франт', 'Elegán', 'Dapper'], d: ['Купи первую шляпу', 'Купі першы галаўны ўбор', 'Kup si první klobouk', 'Buy your first hat'], ok: s => s.hats.length >= 1 },
   { id: 'star15', i: '✨', t: ['Звёздная пыль', 'Зорны пыл', 'Hvězdný prach', 'Stardust'], d: ['Собери 15 звёзд', 'Збяры 15 зорак', 'Získej 15 hvězd', 'Collect 15 stars'], ok: s => totalStars(s) >= 15 },
   { id: 'star60', i: '🌠', t: ['Звёздное небо', 'Зорнае неба', 'Hvězdná obloha', 'Starry sky'], d: ['Собери 60 звёзд', 'Збяры 60 зорак', 'Získej 60 hvězd', 'Collect 60 stars'], ok: s => totalStars(s) >= 60 },
-  { id: 'sk3', i: '📈', t: ['Растём', 'Расцём', 'Rosteme', 'Growing'], d: ['Подними любой навык до 3 уровня', 'Падніми любы навык да 3 узроўню', 'Zvedni jakoukoli dovednost na úroveň 3', 'Raise any skill to level 3'], ok: s => SKILLS.some(k => s.skills[k].lvl >= 3) },
+  { id: 'sk3', i: '📈', t: ['Растём', 'Расцём', 'Rosteme', 'Growing'], d: ['Подними любой навык до 3 уровня', 'Дабіся 3 узроўню ў любым навыку', 'Zvedni jakoukoli dovednost na úroveň 3', 'Raise any skill to level 3'], ok: s => SKILLS.some(k => s.skills[k].lvl >= 3) },
   { id: 'allsk3', i: '🎖️', t: ['Все навыки', 'Усе навыкі', 'Všechny dovednosti', 'All-rounder'], d: ['Все доступные навыки не ниже 3 уровня', 'Усе даступныя навыкі не ніжэй за 3 узровень', 'Všechny dostupné dovednosti alespoň na úrovni 3', 'All available skills at level 3 or higher'], ok: s => availSkills().every(k => s.skills[k].lvl >= 3) },
   { id: 'chess1', i: '♟️', t: ['Первые ходы', 'Першыя хады', 'První tahy', 'First moves'], d: ['Пройди первый шахматный урок', 'Прайдзі першы шахматны ўрок', 'Dokonči první šachovou lekci', 'Finish your first chess lesson'], ok: s => Object.keys(s.chessLessons || {}).length >= 1 },
   { id: 'chessall', i: '🏰', t: ['Юный шахматист', 'Юны шахматыст', 'Mladý šachista', 'Young chess player'], d: ['Пройди все 9 шахматных уроков', 'Прайдзі ўсе 9 шахматных урокаў', 'Dokonči všech 9 šachových lekcí', 'Finish all 9 chess lessons'], ok: s => Object.keys(s.chessLessons || {}).length >= 9 },
@@ -740,5 +740,5 @@ up.setAttribute('aria-label', tt('Наверх', 'Угару', `Nahoru`, `Up`));
 up.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
 window.addEventListener('scroll', () => { up.hidden = !(window.scrollY > 400 && ['home', 'shop', 'awards'].includes(R)); }, { passive: true });
 if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(() => {});
-window.__umniki = { GENS, S: () => S, L: () => L, A, buildSet, skillPool, sigOf, Chess, mergeStates, defState, clone, SK, availSkills, render, setR: v => { R = v; } };
+window.__umniki = { GENS, S: () => S, L: () => L, A, buildSet, skillPool, sigOf, Chess, mergeStates, defState, clone, SK, availSkills, render, save, setR: v => { R = v; } };
 })();

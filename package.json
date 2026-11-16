@@ -1,0 +1,10 @@
+{
+  "name": "umniki",
+  "private": true,
+  "description": "Умники — математика, логика, внимание, память и шахматы для детей",
+  "scripts": {
+    "test": "node tests/skills.test.js && node tests/chess_engine.test.js && node tests/chess_data.test.js && node tests/gens.test.js",
+    "test:e2e": "node tests/e2e.js",
+    "gen:chess": "node tools/gen_chess.js > chess_data.js"
+  }
+}
