@@ -338,3 +338,6 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;paddin
 :root{--grn-b:#277d00}
 .chip2.on{background:var(--pri-b)}
 .tag{color:color-mix(in srgb,var(--c) 62%,#000)}
+:root{--grn-b:#1f7300;--grn-bd:#165200}
+.opt.ok{color:#1f6600}
+.btn[disabled]{color:#555570}
