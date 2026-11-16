@@ -1,7 +1,7 @@
 'use strict';
 // Запуск: node tests/gens.test.js — проверяет все генераторы задач на всех языках без браузера
 const assert = require('assert'); global.window = global;
-require('../gens.js'); require('../gens_ext.js'); window.ChessEngine = require('../chess_engine.js'); window.ChessData = require('../chess_data.js'); require('../chess.js');
+require('../gens.js'); require('../gens_ext.js'); require('../gens_more.js'); window.ChessEngine = require('../chess_engine.js'); window.ChessData = require('../chess_data.js'); require('../chess.js');
 const { GENS, LANGS, setLang } = window.Gens, E = window.ChessEngine, K = require('../skills.js');
 let fails = 0; const t = (n, fn) => { try { fn(); console.log('PASS', n); } catch (e) { fails++; process.exitCode = 1; console.log('FAIL', n, '\n   ', e.message); } };
 const LEAK = { be: /[^\s]*[иИщЩъЪ][^\s]*/g, cs: /[^\s]*[А-Яа-яЁёІі][^\s]*/g, en: /[^\s]*[А-Яа-яЁёІі][^\s]*/g, ru: /[^\s]*[A-Za-z][^\s]*/g };

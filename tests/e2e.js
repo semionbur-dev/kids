@@ -30,7 +30,7 @@ const playAll = async (p, wrongAt = -1) => { for (let g = 0; g < 40; g++) { if (
 async function langPass(b, locale, lang) {
   const p = await newPage(b, locale), leaks = [];
   const scan = async tag => { const t = await p.evaluate(() => document.body.innerText), m = (t.match(LEAK[lang]) || []).map(w => w.replace(/[.,:;!?«»„“"()\/‑–—]/g, '')).filter(w => w && !ALLOW.test(w)); if (m.length) leaks.push(`${tag}: ${[...new Set(m)].join(', ')}`); };
-  await scan('onboard'); await p.fill('#nm', 'Anna'); await p.tap('[data-a=obstart]'); await scan('home');
+  await scan('onboard'); await p.tap('[data-a=obage][data-n="9"]'); await p.fill('#nm', 'Anna'); await p.tap('[data-a=obstart]'); await scan('home');
   for (const s of ['numbers', 'logic', 'space', 'attention', 'memory']) {
     await p.evaluate(s => window.__umniki.A.skill({ dataset: { s } }), s);
     const first = await p.evaluate(() => !!window.__umniki.L().queue[0].study); await scan('q:' + s);
@@ -50,6 +50,11 @@ async function langPass(b, locale, lang) {
   await p.evaluate(() => { const u = window.__umniki, S = u.S(), K = window.Skills, t = K.dayStr(new Date()); K.addHist(S.hist, t, { sec: 700, ses: 2, skill: 'numbers', ok: 6, total: 8 }); K.addHist(S.hist, K.addDays(t, -9), { sec: 100, ses: 1, skill: 'logic', ok: 2, total: 4 });
     for (const k of Object.keys(S.skills)) { S.skills[k].n = 20; S.skills[k].ok = 10 + (k.length % 3) * 3; } S.stat.lessons = 5; S.chessLessons = { rook: 3 }; });
   for (const r of ['report', 'parent', 'profile', 'awards', 'shop', 'chess']) { await p.evaluate(r => { window.__umniki.unlockParent(); window.__umniki.setR(r); window.__umniki.render(); }, r); await scan(r); }
+  await p.evaluate(() => { const u = window.__umniki; u.unlockParent(); u.A.kadd(); }); await scan('kid-new');
+  await p.evaluate(() => { const u = window.__umniki; u.A.kback(); u.FAM().kids.push(Object.assign(u.defState(), { id: 'k2', name: 'Anna', age: 6, pet: '🦊', pets: ['🦊'], skills: window.Skills.newSkills(6) })); delete u.FAM().kids[1].parent; u.render(); }); await scan('parent+kids');
+  await p.evaluate(() => { const u = window.__umniki; u.A.kedit({ dataset: { id: 'k2' } }); }); await scan('kid-edit');
+  await p.evaluate(() => { const u = window.__umniki; u.A.who({ dataset: { id: 'k2' } }); u.A.switchkid(); }); await scan('who');
+  await p.evaluate(() => { const u = window.__umniki; u.FAM().kids.pop(); u.useKid(u.FAM().kids[0].id); u.setR('home'); u.render(); });
   await p.evaluate(s => { window.__umniki.S().bil.second = s; window.__umniki.S().bil.mode = 'mix'; }, lang === 'cs' ? 'ru' : 'cs');
   for (const r of ['parent', 'report']) { await p.evaluate(r => { window.__umniki.unlockParent(); window.__umniki.setR(r); window.__umniki.render(); }, r); await scan(r + '+bil'); }
   await p.evaluate(() => { window.__umniki.S().bil.mode = 'immersion'; window.__umniki.unlockParent(); window.__umniki.setR('parent'); window.__umniki.render(); }); await scan('parent+immersion'); await p.evaluate(() => { window.__umniki.S().bil.second = ''; });
@@ -66,7 +71,7 @@ async function langPass(b, locale, lang) {
 
 /* ---------- 2. игровой цикл ---------- */
 async function gameLoop(b) {
-  const p = await newPage(b, 'ru-RU'); await p.fill('#nm', 'Маша'); await p.tap('[data-a=obstart]');
+  const p = await newPage(b, 'ru-RU'); await p.tap('[data-a=obage][data-n="9"]'); await p.fill('#nm', 'Маша'); await p.tap('[data-a=obstart]');
   ok(await p.evaluate(() => !document.body.innerText.includes('❤') && !!document.querySelector('.route') && document.querySelectorAll('.skc').length === 6), 'главная: маршрут и 6 навыков, никаких сердечек');
   const nSk = await p.evaluate(() => window.__umniki.S().route.skills.length); ok(nSk === 4, 'маршрут из 4 мини-игр');
   await p.tap('[data-a=route]'); await playAll(p, 1);
@@ -97,25 +102,26 @@ async function cloud(b) {
   const dev = async () => { const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, locale: 'ru-RU' }); const p = await ctx.newPage(); p.errs = []; p.on('pageerror', e => p.errs.push(e.message));
     await p.exposeFunction('__dbGet', k => store.get(k) || null); await p.exposeFunction('__dbSet', (k, v) => { store.set(k, v); });
     await p.route('**/firebasejs/**', r => r.fulfill({ contentType: 'application/javascript', body: r.request().url().includes('app-compat') ? MOCK : '/* */' })); await p.goto(URL); return p; };
-  const A = await dev(); await A.fill('#nm', 'Маша'); await A.tap('[data-a=obstart]');
+  const A = await dev(); await A.tap('[data-a=obage][data-n="9"]'); await A.fill('#nm', 'Маша'); await A.tap('[data-a=obstart]');
   await A.evaluate(() => { const S = window.__umniki.S(), K = window.Skills, t = K.dayStr(new Date()); S.skills.logic = { lvl: 3, win: [], n: 40, ok: 30 }; S.xp = 200; S.chessLessons = { rook: 3 }; K.addHist(S.hist, t, { sec: 500, ses: 2, skill: 'logic', ok: 7, total: 8 }); S.stat.lessons = 4; window.__umniki.unlockParent(); window.__umniki.setR('parent'); window.__umniki.render(); });
   await A.waitForTimeout(300); await A.tap('[data-a=login]'); await A.waitForTimeout(800);
   const doc = store.get('users/u1');
-  ok(doc && doc.s.skills.logic.lvl === 3 && doc.s.chessLessons.rook === 3 && Object.keys(doc.s.hist).length === 1 && !('hearts' in doc.s) && !('streak' in doc.s), 'A: навыки, история, шахматные уроки ушли в облако (без устаревших полей)');
+  const dk = doc && doc.fam && doc.fam.kids[0];
+  ok(dk && dk.skills.logic.lvl === 3 && dk.chessLessons.rook === 3 && Object.keys(dk.hist).length === 1 && !('hearts' in dk) && !('streak' in dk) && !('parent' in dk) && doc.fam.parent, 'A: навыки, история, шахматные уроки ушли в облако (без устаревших полей)');
   const B = await dev(); await B.tap('.onb [data-a=login]'); await B.waitForTimeout(900);
   const sb = await B.evaluate(() => { const s = window.__umniki.S(); return { name: s.name, lvl: s.skills.logic.lvl, ch: s.chessLessons, days: Object.keys(s.hist).length, xp: s.xp }; });
   ok(sb.name === 'Маша' && sb.lvl === 3 && sb.ch.rook === 3 && sb.days === 1 && sb.xp === 200, 'B: на новом устройстве подтянулись уровень навыка, история и уроки шахмат ' + JSON.stringify(sb));
   // слияние: у B свои данные в другой день и другой навык
   await B.evaluate(() => { const S = window.__umniki.S(), K = window.Skills, t = K.addDays(K.dayStr(new Date()), -1); S.skills.memory = { lvl: 2, win: [], n: 25, ok: 18 }; S.chessLessons.knight = 2; K.addHist(S.hist, t, { sec: 300, ses: 1, skill: 'memory', ok: 5, total: 6 }); window.__umniki.save(); });
   await B.evaluate(() => window.__umniki.A.profile()); await B.waitForTimeout(2200);
-  const d2 = store.get('users/u1').s; ok(d2.skills.memory.lvl === 2 && d2.skills.logic.lvl === 3 && d2.chessLessons.knight === 2 && d2.chessLessons.rook === 3 && Object.keys(d2.hist).length === 2, 'слияние: оба навыка, оба дня и оба шахматных урока сохранены');
+  const d2 = store.get('users/u1').fam.kids[0]; ok(d2.skills.memory.lvl === 2 && d2.skills.logic.lvl === 3 && d2.chessLessons.knight === 2 && d2.chessLessons.rook === 3 && Object.keys(d2.hist).length === 2, 'слияние: оба навыка, оба дня и оба шахматных урока сохранены');
   ok(A.errs.length === 0 && B.errs.length === 0, 'нет ошибок в консоли (облако)');
   await A.context().close(); await B.context().close();
 }
 
 /* ---------- 4. родительская зона: PIN и лимит времени ---------- */
 async function parentZone(b) {
-  const p = await newPage(b, 'ru-RU'); await p.fill('#nm', 'Маша'); await p.tap('[data-a=obstart]');
+  const p = await newPage(b, 'ru-RU'); await p.tap('[data-a=obage][data-n="9"]'); await p.fill('#nm', 'Маша'); await p.tap('[data-a=obstart]');
   const pin = async d => { for (const c of d) await p.tap(`[data-a=pinkey][data-k="${c}"]`); };
   const txt = () => p.evaluate(() => document.body.innerText);
   // дети без PIN не попадают в отчёт и настройки
@@ -166,7 +172,7 @@ async function pinForgot(b) {
   const store = new Map(); const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, locale: 'ru-RU' }); const p = await ctx.newPage(); p.errs = []; p.on('pageerror', e => p.errs.push(e.message));
   await p.exposeFunction('__dbGet', k => store.get(k) || null); await p.exposeFunction('__dbSet', (k, v) => { store.set(k, v); });
   await p.route('**/firebasejs/**', r => r.fulfill({ contentType: 'application/javascript', body: r.request().url().includes('app-compat') ? MOCK : '/* */' })); await p.goto(URL);
-  await p.fill('#nm', 'Маша'); await p.tap('[data-a=obstart]'); await p.tap('.hero'); await p.waitForTimeout(600);
+  await p.tap('[data-a=obage][data-n="9"]'); await p.fill('#nm', 'Маша'); await p.tap('[data-a=obstart]'); await p.tap('.hero'); await p.waitForTimeout(600);
   await p.tap('[data-a=parentzone]'); for (const c of '1234') await p.tap(`[data-a=pinkey][data-k="${c}"]`); for (const c of '1234') await p.tap(`[data-a=pinkey][data-k="${c}"]`); await p.tap('[data-a=lockparent]'); await p.waitForTimeout(300);
   await p.tap('[data-a=parentzone]'); await p.tap('[data-a=pinforgot]'); ok(await p.evaluate(() => /Забыли PIN/.test(document.querySelector('.dlg').innerText)), 'забыли PIN: предлагается сброс через Google');
   await p.tap('[data-mi="0"]'); await p.waitForTimeout(900);
@@ -176,7 +182,7 @@ async function pinForgot(b) {
 
 /* ---------- 5. двуязычный режим ---------- */
 async function bilingual(b) {
-  const p = await newPage(b, 'cs-CZ'); await p.fill('#nm', 'Anna'); await p.tap('[data-a=obstart]');
+  const p = await newPage(b, 'cs-CZ'); await p.tap('[data-a=obage][data-n="9"]'); await p.fill('#nm', 'Anna'); await p.tap('[data-a=obstart]');
   const U = (fn, arg) => p.evaluate(fn, arg);
   await U(() => { window.__umniki.unlockParent(); window.__umniki.setR('parent'); window.__umniki.render(); });
   ok(await U(() => /dvojjazyčný režim/i.test(document.body.innerText) && document.querySelectorAll('[data-a=bilsecond]').length === 4), 'родительская зона (чешский интерфейс): выбор второго языка — «выкл» и три других языка (основной не предлагается)');

@@ -341,3 +341,16 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;paddin
 :root{--grn-b:#1f7300;--grn-bd:#165200}
 .opt.ok{color:#1f6600}
 .btn[disabled]{color:#555570}
+
+/* ---------- профили детей ---------- */
+.who{display:grid;grid-template-columns:1fr 1fr;gap:14px;width:100%;margin-top:10px}
+.whoc{display:flex;flex-direction:column;align-items:center;gap:10px;padding:22px 10px 16px;border-radius:24px;background:#fff;border:3px solid var(--line);border-bottom-width:7px;font-size:20px;min-height:170px;justify-content:center}
+.whoc:active{transform:translateY(3px);border-bottom-width:4px}
+.whoc.c0{border-color:#bfb7ff}.whoc.c1{border-color:#ffc9a8}.whoc.c2{border-color:#a8e6c8}
+.whoc .mascot{width:92px;height:92px;font-size:54px}.whoc b{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kidrow{display:flex;gap:8px;align-items:stretch;margin-bottom:8px}
+.kmain{flex:1;display:flex;align-items:center;gap:12px;text-align:left;padding:8px 12px;border-radius:16px;background:#fff;border:2px solid var(--line);min-height:56px}
+.kidrow.on .kmain{border-color:var(--pri-t);background:#efecff}
+.kmain b{display:block;font-size:17px}.kmain small{font-size:13px;color:var(--mut)}
+.kidrow .kedit{width:56px;flex:none;font-size:20px}
+.kin{width:100%;padding:12px 14px;font:inherit;font-size:18px;border-radius:14px;border:2px solid var(--line);background:#fff;color:var(--ink);-webkit-user-select:text;user-select:text}

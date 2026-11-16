@@ -10,11 +10,20 @@ const SKILL_OF = {
   add: 'numbers', sub: 'numbers', mul: 'numbers', div: 'numbers', missing: 'numbers', word: 'numbers', units: 'numbers', time: 'numbers',
   fshade: 'numbers', fof: 'numbers', fcmp: 'numbers', ncmp: 'numbers', ops: 'numbers', equiv: 'numbers',
   seq: 'logic', machine: 'logic', odd: 'logic', pattern: 'logic', analogy: 'logic', riddle: 'logic', order: 'logic', legs: 'logic', balance: 'logic', sudoku: 'logic', magic: 'logic',
-  perim: 'space', area: 'space', shapes: 'space', robot: 'space', mirror: 'space',
-  count: 'attention', diff: 'attention', vanish: 'attention', same: 'attention', most: 'attention',
+  perim: 'space', area: 'space', shapes: 'space', robot: 'space', mirror: 'space', rotate: 'space', symm: 'space', where: 'space',
+  ycount: 'numbers', yadd: 'numbers', ymore: 'numbers',
+  count: 'attention', diff: 'attention', vanish: 'attention', same: 'attention', most: 'attention', unpair: 'attention',
   memseq: 'memory', mempos: 'memory', memnum: 'memory', memcount: 'memory', mempair: 'memory', memcolor: 'memory',
   chess_move: 'chess', chess_capture: 'chess', chess_check: 'chess', chess_mate: 'chess', chess_win: 'chess', chess_save: 'chess',
 };
+
+/* Задания, которые подходят в 5–7 лет: почти без чтения, мелкие числа, картинки */
+const YOUNG = new Set(['add', 'sub', 'ycount', 'yadd', 'ymore', 'seq', 'odd', 'pattern', 'robot', 'mirror', 'where', 'count', 'diff', 'vanish', 'same', 'most', 'unpair',
+  'memseq', 'mempos', 'memnum', 'memcount', 'mempair', 'memcolor', 'chess_move', 'chess_capture', 'chess_check', 'chess_mate', 'chess_win', 'chess_save']);
+const YOUNG_MAX_AGE = 7, AGES = [5, 6, 7, 8, 9, 10];
+const isYoungAge = age => age >= 5 && age <= YOUNG_MAX_AGE;
+/* для малышей оставляем только «лёгкие» типы, если их в навыке хотя бы 2; иначе — всё */
+const forAge = (ids, age) => { if (!isYoungAge(age)) return ids; const y = ids.filter(id => YOUNG.has(id)); return y.length >= 2 ? y : ids; };
 
 /* ---------- даты ---------- */
 const pad = n => String(n).padStart(2, '0');
@@ -24,7 +33,10 @@ const addDays = (s, n) => { const d = parseDay(s); d.setDate(d.getDate() + n); r
 
 /* ---------- навыки и адаптивный уровень ---------- */
 const newSkill = () => ({ lvl: 1, win: [], n: 0, ok: 0 });
-const newSkills = () => Object.fromEntries(SKILLS.map(k => [k, newSkill()]));
+const startLvl = (k, age) => k === 'chess' || !age ? 1 : (k === 'attention' || k === 'memory') ? (age >= 9 ? 2 : 1) : age >= 10 ? 3 : age >= 8 ? 2 : 1;
+const newSkills = age => Object.fromEntries(SKILLS.map(k => [k, Object.assign(newSkill(), { lvl: startLvl(k, age) })]));
+/* смена возраста: стартовый уровень меняем только у навыков, в которых ещё не было ответов */
+const applyAge = (sk, age) => { for (const k of SKILLS) if (sk[k] && !sk[k].n) { sk[k].lvl = startLvl(k, age); sk[k].win = []; } return sk; };
 const fixSkills = sk => { sk = sk || {}; for (const k of SKILLS) { const x = sk[k] = Object.assign(newSkill(), sk[k]); x.lvl = Math.min(MAX_LVL, Math.max(1, x.lvl | 0)); if (!Array.isArray(x.win)) x.win = []; } return sk; };
 
 /* Результат ответа с первой попытки. Уровень оценивается блоками по 10 ответов на текущем уровне:
@@ -159,7 +171,7 @@ function limitLeft(parent, hist, today, live = 0) {
 }
 const mergeParent = (nw, ol) => JSON.parse(JSON.stringify(nw.pin || !ol.pin ? nw : ol));   // побеждает копия, где PIN уже задан
 
-const api = { SHARES, newBil, fixBil, bilActive, planLangs, adaptShare, mergeBil, newParent, fixParent, pinHash, hasPin, checkPin, setPin, limitLeft, mergeParent, SKILLS, SKILL_OF, MAX_LVL, WIN, UP_AT, DOWN_AT, ROUTE_LEN, HIST_DAYS, dayStr, parseDay, addDays, newSkills, fixSkills, recordResult, starsFor,
+const api = { YOUNG, AGES, isYoungAge, forAge, startLvl, applyAge, SHARES, newBil, fixBil, bilActive, planLangs, adaptShare, mergeBil, newParent, fixParent, pinHash, hasPin, checkPin, setPin, limitLeft, mergeParent, SKILLS, SKILL_OF, MAX_LVL, WIN, UP_AT, DOWN_AT, ROUTE_LEN, HIST_DAYS, dayStr, parseDay, addDays, newSkills, fixSkills, recordResult, starsFor,
   addHist, pruneHist, daysPlayedIn, daysPlayedTotal, lastPlayed, mergeHist, mergeSkills, weekStats, pickRoute, ensureRoute };
 if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Skills = api;
 })(typeof window !== 'undefined' ? window : globalThis);

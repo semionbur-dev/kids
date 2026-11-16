@@ -62,25 +62,47 @@ const ACH = [
 
 /* ======================== Состояние ======================== */
 const KEY = 'umniki.v1';
-const defState = () => ({ name: '', pet: '', pets: [], hat: '', hats: [], coins: 0, xp: 0, ach: {},
+const defState = () => ({ id: '', age: 0, name: '', pet: '', pets: [], hat: '', hats: [], coins: 0, xp: 0, ach: {},
   stat: { lessons: 0, correct: 0, perfect: 0, bestCombo: 0, routes: 0 }, starsTotal: 0, chessLessons: {}, parent: Skills.newParent(), bil: Skills.newBil(), skills: Skills.newSkills(), hist: {}, route: null,
   sound: true, recent: [], ts: 0, lang: (/^(be|cs|en|ru)/i.exec(navigator.language || '') || ['ru'])[0].toLowerCase() });
 let S;
 const OLD_KEYS = ['hearts', 'heartAt', 'streak', 'bestStreak', 'lastDay', 'todayDate', 'todayXp', 'goalPaid'];
-function load() {
-  let raw = null; try { raw = JSON.parse(localStorage.getItem(KEY)); } catch (e) {}
-  S = Object.assign(defState(), raw || {});
-  S.stat = Object.assign(defState().stat, S.stat);
-  if (S.starsTotal === undefined || (raw && raw.done && !raw.starsTotal)) {   // перенос звёзд из старых «уроков»
-    S.starsTotal = Math.max(S.starsTotal || 0, Object.values((raw && raw.done) || {}).reduce((a, arr) => a + (arr || []).reduce((x, y) => x + (y || 0), 0), 0)); }
-  if (!S.chessLessons || typeof S.chessLessons !== 'object') S.chessLessons = {};
-  S.parent = Skills.fixParent(S.parent); S.bil = Skills.fixBil(S.bil);
-  S.skills = Skills.fixSkills(S.skills); if (!S.hist || typeof S.hist !== 'object') S.hist = {};
-  for (const k of [...OLD_KEYS, 'done']) delete S[k];
-  S.lang = langOk(S.lang);
-  setLang(S.lang); document.documentElement.lang = S.lang; document.title = tt('Умники', 'Разумнікі', `Chytráci`, `Smart Kids`);
+const KEY2 = 'umniki.v2', MAX_KIDS = 3;
+let FAM = { kids: [], parent: null };   // семья: до 3 детских профилей и общий родительский PIN/лимит
+const newId = () => 'k' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+function norm(raw) {   // приводит сохранённое состояние ребёнка к актуальному виду
+  const s = Object.assign(defState(), raw || {});
+  s.stat = Object.assign(defState().stat, s.stat);
+  if (s.starsTotal === undefined || (raw && raw.done && !raw.starsTotal)) {   // перенос звёзд из старых «уроков»
+    s.starsTotal = Math.max(s.starsTotal || 0, Object.values((raw && raw.done) || {}).reduce((a, arr) => a + (arr || []).reduce((x, y) => x + (y || 0), 0), 0)); }
+  if (!s.chessLessons || typeof s.chessLessons !== 'object') s.chessLessons = {};
+  s.bil = Skills.fixBil(s.bil); s.skills = Skills.fixSkills(s.skills); if (!s.hist || typeof s.hist !== 'object') s.hist = {};
+  for (const k of [...OLD_KEYS, 'done', 'parent']) delete s[k];
+  s.lang = langOk(s.lang); s.age = Skills.AGES.includes(s.age | 0) ? s.age | 0 : 0;
+  return s;
 }
-function save(o) { S.ts = Date.now(); try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} if (!(o && o.nopush)) pushSoon(); }
+const applyLang = () => { setLang(S.lang); document.documentElement.lang = S.lang; document.title = tt('Умники', 'Разумнікі', `Chytráci`, `Smart Kids`); };
+function useKid(id) {
+  S = FAM.kids.find(k => k.id === id) || FAM.kids[0] || Object.assign(defState(), { skills: Skills.newSkills() });
+  S.parent = FAM.parent; applyLang();
+}
+function setFam(raw) {
+  FAM = { kids: [], parent: Skills.fixParent(raw && raw.parent) };
+  const ids = new Set();
+  for (const k of (raw && raw.kids) || []) { const x = norm(k); if (!x.id || ids.has(x.id)) x.id = newId(); ids.add(x.id); FAM.kids.push(x); }
+  useKid(raw && raw.active);
+}
+const famJSON = () => ({ v: 2, active: S.id, parent: clone(FAM.parent), kids: FAM.kids.map(k => { const c = Object.assign({}, k); delete c.parent; return c; }) });
+function load() {
+  let v2 = null, v1 = null;
+  try { v2 = JSON.parse(localStorage.getItem(KEY2)); } catch (e) {}
+  if (!v2 || !Array.isArray(v2.kids)) {   // первый запуск версии с профилями: переносим прежнего единственного ребёнка
+    try { v1 = JSON.parse(localStorage.getItem(KEY)); } catch (e) {}
+    v2 = v1 && v1.name ? { kids: [Object.assign({}, v1, { id: 'k1' })], parent: v1.parent, active: 'k1' } : null;
+  }
+  setFam(v2);
+}
+function save(o) { S.ts = Date.now(); try { localStorage.setItem(KEY2, JSON.stringify(famJSON())); } catch (e) {} if (!(o && o.nopush)) pushSoon(); }
 
 const today = () => Skills.dayStr(new Date());
 const lvl = xp => Math.floor(Math.sqrt(xp / 30)) + 1;
@@ -175,12 +197,12 @@ function buildSet(pool, d, n, langs) {
   }
   return out;
 }
-const skillPool = (skill, lv) => GENS.filter(g => Skills.SKILL_OF[g.id] === skill && g.minD <= lv);
+const skillPool = (skill, lv) => { const all = GENS.filter(g => Skills.SKILL_OF[g.id] === skill && g.minD <= lv), keep = new Set(Skills.forAge(all.map(g => g.id), S.age)); return all.filter(g => keep.has(g.id)); };
 
 /* ======================== Маршрутизация и отрисовка ======================== */
 let R = 'home', L = null, RES = null;
 const root = $('#app');
-const mascot = (cls = '', bounce = false) => `<div class="mascot ${cls}${bounce ? ' bounce' : ''}"><span class="hat">${S.hat}</span><span class="pet">${S.pet}</span></div>`;
+const mascot = (cls = '', bounce = false, k = S) => `<div class="mascot ${cls}${bounce ? ' bounce' : ''}"><span class="hat">${k.hat}</span><span class="pet">${k.pet}</span></div>`;
 
 function topBar() {
   return `<div class="top">
@@ -194,25 +216,51 @@ const tabs = on => `<nav class="tabs">${[['home', '🏠', tt('Учёба', 'На
 
 function render() {
   if (!S.name) R = 'onboard';
-  if (R !== 'parent' && R !== 'report') parentOK = false;
+  if (R !== 'parent' && R !== 'report' && R !== 'kid') parentOK = false;
   if ((R === 'parent' || R === 'report') && !parentOK) { PN = { mode: Skills.hasPin(S.parent) ? 'enter' : 'set', buf: '', first: '', next: R, back: 'profile', err: '' }; R = 'pin'; }
+  if (R === 'kid' && !parentOK) R = 'profile';
   if (R === 'profile' || R === 'onboard') prefetchFb();
-  ({ onboard: rOnboard, home: rHome, shop: rShop, awards: rAwards, profile: rProfile, report: rReport, chess: rChess, pin: rPin, parent: rParent, timeup: rTimeup, lesson: rLesson, result: rResult })[R]();
+  ({ onboard: rOnboard, home: rHome, shop: rShop, awards: rAwards, profile: rProfile, report: rReport, chess: rChess, pin: rPin, parent: rParent, who: rWho, kid: rKid, timeup: rTimeup, lesson: rLesson, result: rResult })[R]();
   window.scrollTo(0, 0);
 }
 
 /* ---------- онбординг ---------- */
-let ob = { pet: '🐱' };
+let ob = { pet: '🐱', age: 0 };
+const ageTxt = n => `${n} ${tt('лет', 'гадоў', `let`, `y.o.`)}`;
+const ageChips = (cur, act) => `<div class="chips" style="justify-content:center">${Skills.AGES.map(n => `<button class="chip2${cur === n ? ' on' : ''}" data-a="${act}" data-n="${n}">${n}</button>`).join('')}</div>`;
 function rOnboard() {
   root.innerHTML = `<div class="onb"><div style="font-size:70px">🎓</div><h1>${tt('Умники', 'Разумнікі', `Chytráci`, `Smart Kids`)}</h1>
     <div class="pets lang">${Object.entries(LANG_NAMES).map(([c, n]) => `<button class="${S.lang === c ? 'on' : ''}" data-a="lang" data-l="${c}">${n}</button>`).join('')}</div>
     <p>${tt('Математика и логика в игре! Как тебя зовут?', 'Матэматыка і логіка ў гульні! Як цябе клічуць?', `Matematika a logika hrou! Jak se jmenuješ?`, `Maths and logic as a game! What is your name?`)}</p>
     <input id="nm" aria-label="${tt('Твоё имя', 'Тваё імя', `Tvoje jméno`, `Your name`)}" maxlength="14" placeholder="${tt('Твоё имя', 'Тваё імя', `Tvoje jméno`, `Your name`)}" autocomplete="off" value="${esc(S.name)}">
+    <p>${tt('Сколько тебе лет?', 'Колькі табе гадоў?', `Kolik ti je let?`, `How old are you?`)}</p>${ageChips(ob.age, 'obage')}
     <p>${tt('Выбери себе друга:', 'Абяры сабе сябра:', `Vyber si kamaráda:`, `Choose a friend:`)}</p>
     <div class="pets">${['🐱', '🐶', '🐰'].map(e => `<button class="${ob.pet === e ? 'on' : ''}" data-a="obpet" data-e="${e}">${e}</button>`).join('')}</div>
     <button class="btn ghost sm" data-a="login">🔑 ${tt('У меня уже есть профиль — войти через Google', 'У мяне ўжо ёсць профіль — увайсці праз Google', `Už mám profil – přihlásit se přes Google`, `I already have a profile – sign in with Google`)}</button>
     <div class="rs" style="text-align:center">${tt('Родителям: PIN и лимит времени — в профиле, «Родительская зона».', 'Бацькам: PIN і ліміт часу — у профілі, «Бацькоўская зона».', `Rodičům: PIN a limit času najdete v profilu, „Rodičovská zóna“.`, `For parents: PIN and time limit are in the profile, “Parents’ zone”.`)}</div>
     <div style="margin-top:auto"><button class="btn grn" data-a="obstart">${tt('Поехали!', 'Паехалі!', `Jdeme na to!`, `Let's go!`)}</button></div></div>`;
+}
+
+/* ---------- кто занимается: вход по картинке (F3) ---------- */
+function rWho() {
+  root.innerHTML = `<div class="onb"><div style="font-size:56px">👋</div><h1>${tt('Кто занимается?', 'Хто займаецца?', `Kdo cvičí?`, `Who is playing?`)}</h1>
+    <div class="who">${FAM.kids.map((k, i) => `<button class="whoc c${i % 3}" data-a="who" data-id="${k.id}">${mascot('', false, k)}<b>${esc(k.name)}</b></button>`).join('')}</div></div>`;
+}
+
+/* ---------- родитель: добавить / изменить ребёнка (F2) ---------- */
+let KF = null;
+function rKid() {
+  const isNew = !KF.id, taken = new Set(FAM.kids.map(k => k.pet));
+  root.innerHTML = topBar() + `<div class="page"><button class="back" data-a="kback">← ${tt('Назад', 'Назад', `Zpět`, `Back`)}</button>
+    <div class="h1">${isNew ? tt('Новый профиль', 'Новы профіль', `Nový profil`, `New profile`) : tt('Профиль ребёнка', 'Профіль дзіцяці', `Profil dítěte`, `Child profile`)}</div>
+    <div class="rs" style="margin:0 2px 8px">${tt('Только имя или псевдоним — без фамилии и фото.', 'Толькі імя або псеўданім — без прозвішча і фота.', `Jen jméno nebo přezdívka – bez příjmení a fotky.`, `Just a first name or nickname – no surname or photo.`)}</div>
+    <input id="kn" class="kin" aria-label="${tt('Имя', 'Імя', `Jméno`, `Name`)}" maxlength="14" placeholder="${tt('Имя или псевдоним', 'Імя або псеўданім', `Jméno nebo přezdívka`, `Name or nickname`)}" autocomplete="off" value="${esc(KF.name)}">
+    <div class="sect">${tt('Возраст', 'Узрост', `Věk`, `Age`)}</div>${ageChips(KF.age, 'kage')}
+    <div class="rs" style="margin:6px 2px 0">${tt('От возраста зависят стартовый уровень и набор заданий: до 8 лет — задания почти без чтения.', 'Ад узросту залежаць стартавы ўзровень і набор заданняў: да 8 гадоў — заданні амаль без чытання.', `Od věku se odvíjí startovní úroveň a výběr úloh: do 8 let jsou úlohy téměř bez čtení.`, `Age sets the starting level and the task mix: under 8, tasks need almost no reading.`)}</div>
+    ${isNew ? `<div class="sect">${tt('Картинка-аватар', 'Карцінка-аватар', `Obrázek-avatar`, `Picture avatar`)}</div><div class="pets">${['🐱', '🐶', '🐰', '🦊', '🐼', '🐸'].map(e => `<button class="${KF.pet === e ? 'on' : ''}" data-a="kpet" data-e="${e}"${taken.has(e) ? ' style="opacity:.5"' : ''}>${e}</button>`).join('')}</div>
+      <div class="rs" style="margin:6px 2px 0">${tt('По этой картинке ребёнок находит свой профиль. Выберите разные картинки.', 'Па гэтай карцінцы дзіця знаходзіць свой профіль. Абярыце розныя карцінкі.', `Podle obrázku dítě najde svůj profil. Vyberte každému jiný.`, `The child finds their profile by this picture. Pick a different one for each child.`)}</div>` : ''}
+    <div style="height:14px"></div><button class="btn grn" data-a="ksave">${tt('Сохранить', 'Захаваць', `Uložit`, `Save`)}</button>
+    ${!isNew && FAM.kids.length > 1 ? `<div style="height:10px"></div><button class="btn ghost sm" data-a="kdel" style="color:#a82828">🗑 ${tt('Удалить профиль', 'Выдаліць профіль', `Smazat profil`, `Delete profile`)}</button>` : ''}</div>` + tabs('');
 }
 
 /* ---------- главная: маршрут дня и карта навыков ---------- */
@@ -290,6 +338,7 @@ function rProfile() {
       <div class="bar xp"><i style="width:${pr}%"></i></div></div></div>
     <div class="row2"><button class="btn ghost sm" data-a="goto" data-t="shop">🎁 ${tt('Сменить друга и шляпу', 'Змяніць сябра і галаўны ўбор', `Změnit kamaráda a klobouk`, `Change friend and hat`)}</button></div>
     <div class="row2"><button class="btn ghost sm" data-a="sound">${S.sound ? tt('🔊 Звук включён', '🔊 Гук уключаны', `🔊 Zvuk zapnutý`, `🔊 Sound on`) : tt('🔇 Звук выключен', '🔇 Гук выключаны', `🔇 Zvuk vypnutý`, `🔇 Sound off`)}</button></div>
+    ${FAM.kids.length > 1 ? `<div class="row2"><button class="btn ghost sm" data-a="switchkid">👥 ${tt('Сменить профиль', 'Змяніць профіль', `Změnit profil`, `Switch profile`)}</button></div>` : ''}
     <div class="sect">🔒</div>
     <div class="row2"><button class="btn blu sm" data-a="parentzone">🔒 ${tt('Родительская зона', 'Бацькоўская зона', `Rodičovská zóna`, `Parents’ zone`)}</button></div>
     <div class="rs" style="margin:0 2px">${tt('Отчёт, язык, аккаунт, лимит времени и сброс — только с PIN родителя.', 'Справаздача, мова, акаўнт, ліміт часу і скід — толькі з PIN бацькоў.', `Přehled, jazyk, účet, limit času a smazání – jen s PIN rodiče.`, `Report, language, account, time limit and reset – only with the parent PIN.`)}</div></div>` + tabs('');
@@ -311,8 +360,12 @@ function rParent() {
   const used = Math.round(((S.hist[today()] || {}).sec || 0) / 60), lim = S.parent.limit, ex = S.parent.extra.date === today() ? S.parent.extra.min : 0;
   root.innerHTML = topBar() + `<div class="page"><button class="back" data-a="lockparent">🔒 ${tt('Закрыть', 'Закрыць', `Zavřít`, `Lock`)}</button>
     <div class="h1">🔐 ${tt('Родительская зона', 'Бацькоўская зона', `Rodičovská zóna`, `Parents’ zone`)}</div>
+    <div class="sect">👨‍👩‍👧 ${tt('Дети', 'Дзеці', `Děti`, `Children`)}</div>
+    ${FAM.kids.map(k => `<div class="kidrow${k.id === S.id ? ' on' : ''}"><button class="kmain" data-a="pkid" data-id="${k.id}">${mascot('sm', false, k)}<span><b>${esc(k.name)}</b><small>${k.age ? ageTxt(k.age) + ' · ' : ''}${tt('уровень', 'узровень', `úroveň`, `level`)} ${lvl(k.xp)}</small></span></button><button class="btn ghost sm kedit" data-a="kedit" data-id="${k.id}" aria-label="${tt('Изменить', 'Змяніць', `Upravit`, `Edit`)}">✏️</button></div>`).join('')}
+    ${FAM.kids.length < MAX_KIDS ? `<div class="row2"><button class="btn blu sm" data-a="kadd">➕ ${tt('Добавить ребёнка', 'Дадаць дзіця', `Přidat dítě`, `Add a child`)}</button></div>` : ''}
+    <div class="rs" style="margin:6px 2px 4px">${tt('Ниже — отчёт и настройки для', 'Ніжэй — справаздача і налады для', `Níže – přehled a nastavení pro`, `Below – report and settings for`)}: <b>${esc(S.name)}</b></div>
     <div class="row2"><button class="btn blu sm" data-a="goto" data-t="report">📊 ${tt('Отчёт для родителя', 'Справаздача для бацькоў', `Přehled pro rodiče`, `Parent report`)}</button></div>
-    <div class="sect">⏱ ${tt('Время занятий в день', 'Час заняткаў у дзень', `Čas cvičení za den`, `Daily practice time`)}</div>
+    <div class="sect">⏱ ${tt('Время занятий в день (для каждого ребёнка)', 'Час заняткаў у дзень (для кожнага дзіцяці)', `Čas cvičení za den (pro každé dítě)`, `Daily practice time (per child)`)}</div>
     <div class="chips">${LIMITS.map(m => `<button class="chip2${lim === m ? ' on' : ''}" data-a="limit" data-m="${m}">${m ? `${m} ${tt('мин', 'хв', `min`, `min`)}` : tt('Без лимита', 'Без ліміту', `Bez limitu`, `No limit`)}</button>`).join('')}</div>
     <div class="rs" style="margin:4px 2px 8px">${tt(`Сегодня: ${used} мин`, `Сёння: ${used} хв`, `Dnes: ${used} min`, `Today: ${used} min`)}${lim ? ` ${tt('из', 'з', `z`, `of`)} ${lim + ex}` : ''}. ${tt('Когда время выйдет, занятие мягко завершится, и ребёнок увидит экран отдыха.', 'Калі час скончыцца, занятак мякка завяршыцца, і дзіця ўбачыць экран адпачынку.', `Až čas vyprší, trénink se jemně ukončí a dítě uvidí obrazovku odpočinku.`, `When time runs out the session ends gently and the child sees a rest screen.`)}</div>
     <div class="sect">🌍 ${tt('Двуязычный режим', 'Двумоўны рэжым', `Dvojjazyčný režim`, `Bilingual mode`)}</div>
@@ -691,7 +744,7 @@ function mergeStates(a, b) {
   if (isFresh(a)) return Object.assign(clone(b), { lang: a.lang, sound: a.sound });
   const nw = (a.ts || 0) >= (b.ts || 0) ? a : b, ol = nw === a ? b : a, m = clone(nw);
   const union = (x, y) => [...new Set([...(x || []), ...(y || [])])];
-  m.name = nw.name || ol.name; m.xp = Math.max(a.xp, b.xp);
+  m.name = nw.name || ol.name; m.age = nw.age || ol.age || 0; m.xp = Math.max(a.xp, b.xp);
   m.pets = union(a.pets, b.pets); m.hats = union(a.hats, b.hats);
   m.pet = m.pets.includes(nw.pet) ? nw.pet : (m.pets[0] || ''); m.hat = (!nw.hat || m.hats.includes(nw.hat)) ? nw.hat : '';
   m.ach = Object.assign({}, ol.ach, nw.ach);
@@ -700,16 +753,29 @@ function mergeStates(a, b) {
   m.chessLessons = {}; for (const k of new Set([...Object.keys(a.chessLessons || {}), ...Object.keys(b.chessLessons || {})])) m.chessLessons[k] = Math.max((a.chessLessons || {})[k] || 0, (b.chessLessons || {})[k] || 0);
   m.skills = Skills.mergeSkills(a.skills, b.skills); m.hist = Skills.mergeHist(a.hist, b.hist);
   m.route = (a.route && b.route && a.route.date === b.route.date) ? (a.route.done.length >= b.route.done.length ? a.route : b.route) : nw.route;
-  m.parent = Skills.mergeParent(Skills.fixParent(nw.parent), Skills.fixParent(ol.parent));
-  m.bil = Skills.mergeBil(Skills.fixBil(nw.bil), Skills.fixBil(ol.bil));
+    m.bil = Skills.mergeBil(Skills.fixBil(nw.bil), Skills.fixBil(ol.bil));
   m.recent = union(ol.recent, nw.recent).slice(-150);
-  for (const k of [...OLD_KEYS, 'done']) delete m[k];
+  for (const k of [...OLD_KEYS, 'done', 'parent']) delete m[k];
   m.lang = a.lang; m.sound = a.sound; m.ts = Math.max(a.ts || 0, b.ts || 0);
   return clone(m);
 }
+/* Объединение семьи: дети сопоставляются по id; пустой «новый» профиль на этом устройстве не плодит дубликатов */
+function mergeFam(a, b) {
+  const out = { kids: [], parent: Skills.mergeParent(Skills.fixParent(a.parent), Skills.fixParent(b.parent)), active: a.active };
+  const bm = new Map(b.kids.map(k => [k.id, k])), seen = new Set();
+  for (const ka of a.kids) {
+    const kb = bm.get(ka.id); seen.add(ka.id);
+    if (!kb && b.kids.length && isFresh(ka)) continue;
+    const m = kb ? mergeStates(ka, kb) : clone(ka); m.id = ka.id; delete m.parent; out.kids.push(m);
+  }
+  for (const kb of b.kids) if (!seen.has(kb.id)) out.kids.push(clone(kb));
+  return out;
+}
+const famFromCloud = d => d && d.fam && Array.isArray(d.fam.kids) ? d.fam
+  : d && d.s ? { kids: [Object.assign({}, d.s, { id: d.s.id || 'k1' })], parent: d.s.parent, active: d.s.id || 'k1' } : null;
 async function pushNow() {
   if (!fbUser || !fbDb) return;
-  await fbDb.collection('users').doc(fbUser.uid).set({ s: clone(S), updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+  await fbDb.collection('users').doc(fbUser.uid).set({ fam: famJSON(), updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
 }
 function pushSoon() {
   if (!fbUser) return;
@@ -721,11 +787,15 @@ async function onAuth(user) {
   if (!user) { setCloud('off'); return; }
   setCloudFlag(true); setCloud('syncing');
   try {
-    const snap = await fbDb.collection('users').doc(user.uid).get(), remote = snap.exists ? (snap.data() || {}).s : null;
-    if (remote) { S = mergeStates(S, remote); S.lang = langOk(S.lang); setLang(S.lang); document.documentElement.lang = S.lang; document.title = tt('Умники', 'Разумнікі', `Chytráci`, `Smart Kids`); }
+    const snap = await fbDb.collection('users').doc(user.uid).get(), remote = snap.exists ? famFromCloud(snap.data() || {}) : null;
+    if (remote) {
+      const keep = S.id, rk = remote.kids.map(k => Object.assign(norm(k), { id: k.id || 'k1' }));
+      setFam(mergeFam({ kids: FAM.kids, parent: FAM.parent, active: S.id }, { kids: rk, parent: remote.parent }));
+      if (keep && FAM.kids.some(k => k.id === keep)) useKid(keep);
+    }
     if (pinResetPending) { pinResetPending = false; S.parent.pin = ''; S.parent.salt = ''; PN = { mode: 'set', buf: '', first: '', next: 'parent', back: 'profile', err: '' }; R = 'pin'; }
     save({ nopush: true }); await pushNow(); setCloud('ok');
-    if (S.name && R === 'onboard') R = 'home';
+    if (S.name && R === 'onboard') R = FAM.kids.length > 1 ? 'who' : 'home';
     if (R !== 'lesson' && R !== 'result') render();
   } catch (e) { console.warn('cloud', e); setCloud('error'); }
 }
@@ -759,11 +829,40 @@ const A = {
   profile() { sfx.tap(); R = 'profile'; render(); },
   login() { login(); },
   logout() { logout(); },
+  who(el) { useKid(el.dataset.id); parentOK = false; R = 'home'; phrase = newPhrase(); save({ nopush: true }); render(); },
+  switchkid() { sfx.tap(); R = 'who'; render(); },
+  pkid(el) { useKid(el.dataset.id); phrase = newPhrase(); save({ nopush: true }); sfx.tap(); render(); },
+  kadd() { if (FAM.kids.length >= MAX_KIDS) return; KF = { id: '', name: '', age: 0, pet: ['🐱', '🐶', '🐰', '🦊', '🐼', '🐸'].find(e => !FAM.kids.some(k => k.pet === e)) || '🐱' }; sfx.tap(); R = 'kid'; render(); },
+  kedit(el) { const k = FAM.kids.find(x => x.id === el.dataset.id); if (!k) return; KF = { id: k.id, name: k.name, age: k.age, pet: k.pet }; sfx.tap(); R = 'kid'; render(); },
+  kage(el) { KF.age = +el.dataset.n; KF.name = ($('#kn') || {}).value || ''; rKid(); const i = $('#kn'); if (i) i.value = KF.name; },
+  kpet(el) { KF.pet = el.dataset.e; KF.name = ($('#kn') || {}).value || ''; rKid(); const i = $('#kn'); if (i) i.value = KF.name; },
+  kback() { R = 'parent'; render(); },
+  ksave() {
+    const name = (($('#kn') || {}).value || '').trim().slice(0, 14);
+    if (!name) { toast(tt('Напишите имя', 'Напішыце імя', `Napište jméno`, `Type a name`)); return; }
+    if (!KF.age) { toast(tt('Выберите возраст', 'Абярыце ўзрост', `Vyberte věk`, `Pick an age`)); return; }
+    if (!KF.id) {
+      const k = Object.assign(defState(), { id: newId(), name, age: KF.age, pet: KF.pet, pets: [KF.pet], skills: Skills.newSkills(KF.age), lang: S.lang }); delete k.parent; FAM.kids.push(k);
+    } else {
+      const k = FAM.kids.find(x => x.id === KF.id); if (!k) return;
+      k.name = name; if (k.age !== KF.age) { k.age = KF.age; Skills.applyAge(k.skills, k.age); }
+    }
+    save(); sfx.ok(); R = 'parent'; render();
+  },
+  kdel() {
+    const k = FAM.kids.find(x => x.id === KF.id); if (!k || FAM.kids.length < 2) return;
+    modal({ icon: '🗑', title: tt(`Удалить профиль «${k.name}»?`, `Выдаліць профіль «${k.name}»?`, `Smazat profil „${k.name}“?`, `Delete the profile “${k.name}”?`), text: tt('Весь прогресс этого ребёнка будет удалён' + (fbUser ? ' (и в облаке тоже).' : '.'), 'Увесь прагрэс гэтага дзіцяці будзе выдалены' + (fbUser ? ' (і ў воблаку таксама).' : '.'), 'Veškerý postup tohoto dítěte bude smazán' + (fbUser ? ' (i v cloudu).' : '.'), 'All of this child’s progress will be deleted' + (fbUser ? ' (in the cloud too).' : '.')),
+      btns: [{ t: tt('Оставить', 'Пакінуць', `Nechat`, `Keep`), c: 'grn', f: () => {} }, { t: tt('Да, удалить', 'Так, выдаліць', `Ano, smazat`, `Yes, delete`), c: 'red', f: () => { FAM.kids = FAM.kids.filter(x => x.id !== k.id); if (S.id === k.id) useKid(FAM.kids[0].id); save(); R = 'parent'; render(); } }] });
+  },
+  obage(el) { ob.age = +el.dataset.n; const v = ($('#nm') || {}).value; if (v !== undefined) S.name = v; rOnboard(); const i = $('#nm'); if (i) i.value = S.name; },
   obpet(el) { ob.pet = el.dataset.e; const v = ($('#nm') || {}).value; if (v !== undefined) S.name = v; rOnboard(); const i = $('#nm'); if (i) i.value = S.name; },
   obstart() {
     const v = ($('#nm').value || '').trim();
     if (!v) { toast(tt('Напиши своё имя 🙂', 'Напішы сваё імя 🙂', `Napiš své jméno 🙂`, `Type your name 🙂`)); return; }
-    S.name = v; S.pet = ob.pet; S.pets = [ob.pet]; save(); R = 'home'; render();
+    if (!ob.age) { toast(tt('Выбери свой возраст 🙂', 'Абяры свой ўзрост 🙂', `Vyber svůj věk 🙂`, `Pick your age 🙂`)); return; }
+    S.id = S.id || newId(); S.name = v; S.age = ob.age; S.skills = Skills.newSkills(ob.age); S.pet = ob.pet; S.pets = [ob.pet];
+    if (!FAM.kids.includes(S)) FAM.kids.push(S);
+    save(); R = 'home'; render();
   },
   goto(el) { R = el.dataset.t; phrase = newPhrase(); render(); },
   home() { R = 'home'; phrase = newPhrase(); render(); },
@@ -848,8 +947,11 @@ const A = {
   limit(el) { S.parent.limit = +el.dataset.m; save(); sfx.tap(); render(); },
   sound() { S.sound = !S.sound; save(); sfx.tap(); render(); },
   rename() { const n = (prompt(tt('Как тебя зовут?', 'Як цябе клічуць?', `Jak se jmenuješ?`, `What is your name?`), S.name) || '').trim(); if (n) { S.name = n.slice(0, 14); save(); render(); } },
-  reset() { modal({ icon: '🗑', title: tt('Начать заново?', 'Пачаць зноў?', 'Začít znovu?', 'Start over?'), text: tt('Весь прогресс, монеты и питомцы будут удалены' + (fbUser ? ' (и в облаке тоже).' : '.'), 'Увесь прагрэс, манеты і гадаванцы будуць выдалены' + (fbUser ? ' (і ў воблаку таксама).' : '.'),
-    'Veškerý postup, mince a kamarádi budou smazáni' + (fbUser ? ' (i v cloudu).' : '.'), 'All progress, coins and pets will be deleted' + (fbUser ? ' (in the cloud too).' : '.')), btns: [{ t: tt('Оставить как есть', 'Пакінуць як ёсць', 'Nechat jak je', 'Keep it'), c: 'grn', f: () => {} }, { t: tt('Да, удалить', 'Так, выдаліць', 'Ano, smazat', 'Yes, delete'), c: 'red', f: () => { try { localStorage.removeItem(KEY); } catch (e) {} load(); save(); R = 'home'; render(); } }] }); },
+  reset() { modal({ icon: '🗑', title: tt(`Начать заново для «${S.name}»?`, `Пачаць зноў для «${S.name}»?`, `Začít znovu pro „${S.name}“?`, `Start over for “${S.name}”?`), text: tt('Весь прогресс, монеты и питомцы этого ребёнка будут удалены' + (fbUser ? ' (и в облаке тоже).' : '.'), 'Увесь прагрэс, манеты і гадаванцы гэтага дзіцяці будуць выдалены' + (fbUser ? ' (і ў воблаку таксама).' : '.'),
+    'Veškerý postup, mince a kamarádi tohoto dítěte budou smazáni' + (fbUser ? ' (i v cloudu).' : '.'), 'All progress, coins and pets of this child will be deleted' + (fbUser ? ' (in the cloud too).' : '.')),
+    btns: [{ t: tt('Оставить как есть', 'Пакінуць як ёсць', 'Nechat jak je', 'Keep it'), c: 'grn', f: () => {} }, { t: tt('Да, удалить', 'Так, выдаліць', 'Ano, smazat', 'Yes, delete'), c: 'red', f: () => {
+      const pet = S.pets[0] || S.pet || '🐱', k = Object.assign(defState(), { id: S.id, name: S.name, age: S.age, lang: S.lang, pet, pets: [pet], skills: Skills.newSkills(S.age) }); delete k.parent;
+      FAM.kids[FAM.kids.indexOf(S)] = k; useKid(k.id); parentOK = false; save(); R = 'home'; render(); } }] }); },
 };
 document.addEventListener('click', e => {
   const mi = e.target.closest('[data-mi]');
@@ -870,7 +972,7 @@ document.addEventListener('keydown', e => {
 });
 
 /* ======================== Запуск ======================== */
-load(); phrase = newPhrase(); render();
+load(); phrase = newPhrase(); if (FAM.kids.length > 1) R = 'who'; render();
 if (cloudFlag()) fbInit().catch(() => {});
 try { if (window.top !== window.self) document.documentElement.classList.add('embed'); } catch (e) { document.documentElement.classList.add('embed'); }
 const up = $('#totop');
@@ -878,5 +980,5 @@ up.setAttribute('aria-label', tt('Наверх', 'Угару', `Nahoru`, `Up`));
 up.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
 window.addEventListener('scroll', () => { up.hidden = !(window.scrollY > 400 && ['home', 'shop', 'awards'].includes(R)); }, { passive: true });
 if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(() => {});
-window.__umniki = { GENS, S: () => S, L: () => L, A, buildSet, skillPool, sigOf, Chess, mergeStates, defState, clone, SK, availSkills, render, save, setR: v => { R = v; }, unlockParent: () => { parentOK = true; }, clearPinLock: () => { pinLockUntil = 0; pinFails = 0; }, limitLeft };
+window.__umniki = { FAM: () => FAM, useKid, mergeFam, norm, setFam, famJSON, GENS, S: () => S, L: () => L, A, buildSet, skillPool, sigOf, Chess, mergeStates, defState, clone, SK, availSkills, render, save, setR: v => { R = v; }, unlockParent: () => { parentOK = true; }, clearPinLock: () => { pinLockUntil = 0; pinFails = 0; }, limitLeft };
 })();
