@@ -51,7 +51,7 @@ const ACH = [
 const KEY = 'umniki.v1';
 const defState = () => ({ name: '', pet: '', pets: [], hat: '', hats: [], coins: 0, xp: 0, streak: 0, bestStreak: 0, lastDay: '',
   hearts: 5, heartAt: Date.now(), done: { arith: [], frac: [], logic: [], geom: [] }, ach: {},
-  stat: { lessons: 0, correct: 0, perfect: 0, bestCombo: 0 }, todayDate: '', todayXp: 0, goalPaid: '', sound: true, recent: [], lang: /^be/i.test(navigator.language || '') ? 'be' : 'ru' });
+  stat: { lessons: 0, correct: 0, perfect: 0, bestCombo: 0 }, todayDate: '', todayXp: 0, goalPaid: '', sound: true, recent: [], ts: 0, lang: /^be/i.test(navigator.language || '') ? 'be' : 'ru' });
 let S;
 function load() {
   let raw = null; try { raw = JSON.parse(localStorage.getItem(KEY)); } catch (e) {}
@@ -60,7 +60,7 @@ function load() {
   if (S.lang !== 'be') S.lang = 'ru';
   setLang(S.lang); document.documentElement.lang = S.lang; document.title = tt('Умники', 'Разумнікі');
 }
-function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
+function save(o) { S.ts = Date.now(); try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} if (!(o && o.nopush)) pushSoon(); }
 
 const pad = n => String(n).padStart(2, '0');
 const dayStr = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -183,6 +183,7 @@ const tabs = on => `<nav class="tabs">${[['home', '🏠', tt('Учёба', 'На
 function render() {
   syncHearts(); touchDay();
   if (!S.name) R = 'onboard';
+  if (R === 'awards' || R === 'onboard') prefetchFb();
   ({ onboard: rOnboard, home: rHome, shop: rShop, awards: rAwards, lesson: rLesson, result: rResult })[R]();
   window.scrollTo(0, 0);
 }
@@ -196,6 +197,7 @@ function rOnboard() {
     <input id="nm" maxlength="14" placeholder="${tt('Твоё имя', 'Тваё імя')}" autocomplete="off" value="${esc(S.name)}">
     <p>${tt('Выбери себе друга:', 'Абяры сабе сябра:')}</p>
     <div class="pets">${['🐱', '🐶', '🐰'].map(e => `<button class="${ob.pet === e ? 'on' : ''}" data-a="obpet" data-e="${e}">${e}</button>`).join('')}</div>
+    <button class="btn ghost sm" data-a="login">🔑 ${tt('У меня уже есть профиль — войти через Google', 'У мяне ўжо ёсць профіль — увайсці праз Google')}</button>
     <div style="margin-top:auto"><button class="btn grn" data-a="obstart">${tt('Поехали!', 'Паехалі!')}</button></div></div>`;
 }
 
@@ -255,6 +257,8 @@ function rAwards() {
     <div class="sect">${tt('Достижения', 'Дасягненні')} · ${got}/${ACH.length}</div>
     <div class="grid">${ACH.map(a => `<div class="card${S.ach[a.id] ? ' on' : ' lock'}"><div class="em">${a.i}</div><div class="ttl">${P(a.t)}</div><small>${P(a.d)}</small></div>`).join('')}</div>
     <div class="sect">${tt('Настройки', 'Налады')}</div>
+    ${fbUser ? `<div class="row2"><div class="cloud">☁️ ${esc(fbUser.email || '')}<small>${cloudText()}</small></div><button class="btn ghost sm" data-a="logout" style="width:auto">${tt('Выйти', 'Выйсці')}</button></div>`
+      : `<div class="row2"><button class="btn blu sm" data-a="login">🔑 ${tt('Войти через Google и сохранить прогресс', 'Увайсці праз Google і захаваць прагрэс')}</button></div>`}
     <div class="row2"><button class="btn ghost sm" data-a="sound">${S.sound ? tt('🔊 Звук включён', '🔊 Гук уключаны') : tt('🔇 Звук выключен', '🔇 Гук выключаны')}</button></div>
     <div class="row2"><button class="btn ghost sm" data-a="lang" data-l="${S.lang === 'be' ? 'ru' : 'be'}">🌐 ${S.lang === 'be' ? 'Мова: Беларуская → Русский' : 'Язык: Русский → Беларуская'}</button></div>
     <div class="row2"><button class="btn ghost sm" data-a="rename">✏️ ${tt('Сменить имя', 'Змяніць імя')}</button><button class="btn ghost sm" data-a="reset">🗑 ${tt('Начать заново', 'Пачаць зноў')}</button></div></div>` + tabs('awards');
@@ -377,6 +381,97 @@ function rResult() {
       ${r.failed ? '' : `<button class="btn ghost" data-a="again">${tt('Ещё раз', 'Яшчэ раз')}</button>`}</div></div>`;
 }
 
+/* ======================== Облако (Firebase): вход через Google и сохранение прогресса ======================== */
+const FIREBASE_CONFIG = {
+  apiKey: 'AIzaSyCaXeNtARtJgzHUA-6tfzlXKY95ZFj3shE', authDomain: 'kido-134cf.firebaseapp.com', projectId: 'kido-134cf',
+  storageBucket: 'kido-134cf.firebasestorage.app', messagingSenderId: '1072588511567', appId: '1:1072588511567:web:1016379d0445d34abbcd3a',
+};
+const FB_VER = '10.12.2', CLOUD_KEY = 'umniki.cloud';
+let fbP = null, fbAuth = null, fbDb = null, fbUser = null, fbLoaded = false, cloudState = 'off', pushTimer = null;
+const cloudFlag = () => { try { return localStorage.getItem(CLOUD_KEY) === '1'; } catch (e) { return false; } };
+const setCloudFlag = v => { try { v ? localStorage.setItem(CLOUD_KEY, '1') : localStorage.removeItem(CLOUD_KEY); } catch (e) {} };
+const loadScript = src => new Promise((res, rej) => { const el = document.createElement('script'); el.src = src; el.onload = res; el.onerror = () => rej(new Error('load ' + src)); document.head.appendChild(el); });
+/* SDK грузится только когда нужен вход, поэтому без интернета и без входа игра работает как раньше */
+function fbInit() {
+  if (fbP) return fbP;
+  fbP = (async () => {
+    const base = `https://www.gstatic.com/firebasejs/${FB_VER}/`;
+    await loadScript(base + 'firebase-app-compat.js');
+    await Promise.all([loadScript(base + 'firebase-auth-compat.js'), loadScript(base + 'firebase-firestore-compat.js')]);
+    if (!window.firebase) throw new Error('sdk');
+    firebase.initializeApp(FIREBASE_CONFIG); fbAuth = firebase.auth(); fbDb = firebase.firestore(); fbLoaded = true;
+    fbAuth.onAuthStateChanged(onAuth);
+  })().catch(e => { fbP = null; throw e; });
+  return fbP;
+}
+const prefetchFb = () => { if (!fbP) fbInit().catch(() => {}); };
+function setCloud(st) { cloudState = st; if (R === 'awards') rAwards(); }
+
+const clone = o => JSON.parse(JSON.stringify(o));
+const isFresh = s => !s.xp && !(s.stat && s.stat.lessons) && !s.coins;
+/* Объединение локального (a) и облачного (b) прогресса. Ничего «накопленного» не теряем:
+   XP, звёзды, достижения, питомцы — по максимуму/объединению; монеты, сердечки, серия — от более свежей копии. */
+function mergeStates(a, b) {
+  a = Object.assign(defState(), a); b = Object.assign(defState(), b);
+  if (isFresh(b)) return a;
+  if (isFresh(a)) return Object.assign(clone(b), { lang: a.lang, sound: a.sound });
+  const nw = (a.ts || 0) >= (b.ts || 0) ? a : b, ol = nw === a ? b : a, m = clone(nw);
+  const union = (x, y) => [...new Set([...(x || []), ...(y || [])])];
+  m.name = nw.name || ol.name; m.xp = Math.max(a.xp, b.xp);
+  m.pets = union(a.pets, b.pets); m.hats = union(a.hats, b.hats);
+  m.pet = m.pets.includes(nw.pet) ? nw.pet : (m.pets[0] || ''); m.hat = (!nw.hat || m.hats.includes(nw.hat)) ? nw.hat : '';
+  m.done = {}; for (const t of new Set([...Object.keys(a.done), ...Object.keys(b.done)])) {
+    const x = a.done[t] || [], y = b.done[t] || [], n = Math.max(x.length, y.length); m.done[t] = Array.from({ length: n }, (_, i) => Math.max(x[i] || 0, y[i] || 0)); }
+  m.ach = Object.assign({}, ol.ach, nw.ach);
+  m.stat = {}; for (const k of new Set([...Object.keys(a.stat), ...Object.keys(b.stat)])) m.stat[k] = Math.max(a.stat[k] || 0, b.stat[k] || 0);
+  m.bestStreak = Math.max(a.bestStreak, b.bestStreak);
+  const sd = (a.lastDay || '') >= (b.lastDay || '') ? a : b;
+  m.streak = sd.streak; m.lastDay = sd.lastDay;
+  const td = (a.todayDate || '') >= (b.todayDate || '') ? a : b; m.todayDate = td.todayDate; m.todayXp = td.todayXp; m.goalPaid = (a.goalPaid || '') >= (b.goalPaid || '') ? a.goalPaid : b.goalPaid;
+  m.recent = union(ol.recent, nw.recent).slice(-150);
+  m.lang = a.lang; m.sound = a.sound; m.ts = Math.max(a.ts || 0, b.ts || 0);
+  return m;
+}
+async function pushNow() {
+  if (!fbUser || !fbDb) return;
+  await fbDb.collection('users').doc(fbUser.uid).set({ s: clone(S), updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+}
+function pushSoon() {
+  if (!fbUser) return;
+  clearTimeout(pushTimer);
+  pushTimer = setTimeout(() => { pushTimer = null; pushNow().then(() => setCloud('ok')).catch(() => setCloud('error')); }, 1500);
+}
+async function onAuth(user) {
+  fbUser = user;
+  if (!user) { setCloud('off'); return; }
+  setCloudFlag(true); setCloud('syncing');
+  try {
+    const snap = await fbDb.collection('users').doc(user.uid).get(), remote = snap.exists ? (snap.data() || {}).s : null;
+    if (remote) { S = mergeStates(S, remote); if (S.lang !== 'be') S.lang = 'ru'; setLang(S.lang); document.documentElement.lang = S.lang; document.title = tt('Умники', 'Разумнікі'); }
+    save({ nopush: true }); await pushNow(); setCloud('ok');
+    if (S.name && R === 'onboard') R = 'home';
+    if (R !== 'lesson' && R !== 'result') render();
+  } catch (e) { console.warn('cloud', e); setCloud('error'); }
+}
+const cloudText = () => ({ syncing: tt('Сохраняю…', 'Захоўваю…'), ok: tt('Прогресс сохранён в облаке', 'Прагрэс захаваны ў воблаку'),
+  error: tt('Не удалось сохранить — проверь интернет', 'Не атрымалася захаваць — праверы інтэрнэт'), off: '' })[cloudState];
+function login() {
+  if (!fbLoaded) {
+    toast(tt('Загружаю вход… нажми ещё раз через секунду', 'Загружаю ўваход… націсні яшчэ раз праз секунду'));
+    fbInit().catch(() => toast(tt('Нет интернета или Google недоступен', 'Няма інтэрнэту або Google недаступны'))); return;
+  }
+  const pr = new firebase.auth.GoogleAuthProvider();
+  fbAuth.signInWithPopup(pr).catch(e => {
+    const c = (e && e.code) || '';
+    if (c === 'auth/popup-closed-by-user' || c === 'auth/cancelled-popup-request') return;
+    if (c === 'auth/popup-blocked' || c === 'auth/operation-not-supported-in-this-environment') return fbAuth.signInWithRedirect(pr);
+    if (c === 'auth/unauthorized-domain') return toast(tt('Этот адрес не разрешён в Firebase (Authorized domains)', 'Гэты адрас не дазволены ў Firebase (Authorized domains)'));
+    toast(tt('Не удалось войти: ', 'Не атрымалася ўвайсці: ') + c);
+  });
+}
+function logout() { if (fbAuth) fbAuth.signOut(); setCloudFlag(false); toast(tt('Вы вышли. Прогресс остался на этом устройстве.', 'Вы выйшлі. Прагрэс застаўся на гэтай прыладзе.')); }
+document.addEventListener('visibilitychange', () => { if (document.hidden && pushTimer) { clearTimeout(pushTimer); pushTimer = null; pushNow().catch(() => {}); } });
+
 /* ======================== События ======================== */
 function press(k) {
   if (!L || L.answered) return;
@@ -385,6 +480,8 @@ function press(k) {
 }
 const A = {
   lang(el) { const v = ($('#nm') || {}).value; if (v !== undefined && !S.name) S.name = v; S.lang = el.dataset.l; setLang(S.lang); document.documentElement.lang = S.lang; document.title = tt('Умники', 'Разумнікі'); phrase = newPhrase(); save(); if (R === 'onboard' || !S.name) { rOnboard(); const i = $('#nm'); if (i) i.value = S.name; } else render(); },
+  login() { login(); },
+  logout() { logout(); },
   obpet(el) { ob.pet = el.dataset.e; const v = ($('#nm') || {}).value; if (v !== undefined) S.name = v; rOnboard(); const i = $('#nm'); if (i) i.value = S.name; },
   obstart() {
     const v = ($('#nm').value || '').trim();
@@ -432,7 +529,7 @@ const A = {
   },
   sound() { S.sound = !S.sound; save(); sfx.tap(); render(); },
   rename() { const n = (prompt(tt('Как тебя зовут?', 'Як цябе клічуць?'), S.name) || '').trim(); if (n) { S.name = n.slice(0, 14); save(); render(); } },
-  reset() { modal({ icon: '🗑', title: tt('Начать заново?', 'Пачаць зноў?'), text: tt('Весь прогресс, монеты и питомцы будут удалены.', 'Увесь прагрэс, манеты і гадаванцы будуць выдалены.'), btns: [{ t: tt('Оставить как есть', 'Пакінуць як ёсць'), c: 'grn', f: () => {} }, { t: tt('Да, удалить', 'Так, выдаліць'), c: 'red', f: () => { try { localStorage.removeItem(KEY); } catch (e) {} load(); R = 'home'; render(); } }] }); },
+  reset() { modal({ icon: '🗑', title: tt('Начать заново?', 'Пачаць зноў?'), text: tt('Весь прогресс, монеты и питомцы будут удалены' + (fbUser ? ' (и в облаке тоже).' : '.'), 'Увесь прагрэс, манеты і гадаванцы будуць выдалены' + (fbUser ? ' (і ў воблаку таксама).' : '.')), btns: [{ t: tt('Оставить как есть', 'Пакінуць як ёсць'), c: 'grn', f: () => {} }, { t: tt('Да, удалить', 'Так, выдаліць'), c: 'red', f: () => { try { localStorage.removeItem(KEY); } catch (e) {} load(); save(); R = 'home'; render(); } }] }); },
 };
 document.addEventListener('click', e => {
   const mi = e.target.closest('[data-mi]');
@@ -459,11 +556,12 @@ setInterval(() => {
 
 /* ======================== Запуск ======================== */
 load(); render();
+if (cloudFlag()) fbInit().catch(() => {});
 try { if (window.top !== window.self) document.documentElement.classList.add('embed'); } catch (e) { document.documentElement.classList.add('embed'); }
 const up = $('#totop');
 up.setAttribute('aria-label', tt('Наверх', 'Угару'));
 up.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
 window.addEventListener('scroll', () => { up.hidden = !(window.scrollY > 400 && ['home', 'shop', 'awards'].includes(R)); }, { passive: true });
 if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(() => {});
-window.__umniki = { GENS, S: () => S, L: () => L, A, buildLesson, sigOf };
+window.__umniki = { GENS, S: () => S, L: () => L, A, buildLesson, sigOf, mergeStates, defState, clone };
 })();

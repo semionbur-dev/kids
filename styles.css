@@ -32,7 +32,7 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;paddin
 .pill.fire b{color:#ff7a00}.pill.coin b{color:#c98f00}.pill.hp b{color:var(--red)}.pill.lv b{color:var(--pri)}
 
 /* ---------- главная ---------- */
-.page{padding:0 14px calc(96px + var(--sab))}
+.page{padding:0 14px calc(150px + var(--sab))}
 .hero{display:flex;gap:12px;align-items:center;background:var(--card);border:2px solid var(--line);
   border-radius:22px;padding:14px;margin-bottom:12px}
 .mascot{position:relative;width:84px;height:84px;flex:none;display:grid;place-items:center;
@@ -198,3 +198,5 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;paddin
 .embed .top{padding-top:calc(48px + var(--sat))}
 .embed .lesson{padding-top:calc(52px + var(--sat))}
 .embed .result,.embed .onb{padding-top:calc(60px + var(--sat))}
+.cloud{flex:1;background:#fff;border:2px solid var(--line);border-radius:12px;padding:8px 10px;font-size:14px;word-break:break-all}
+.cloud small{display:block;color:var(--mut);font-size:12px;margin-top:2px;word-break:normal}

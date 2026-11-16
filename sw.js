@@ -1,4 +1,4 @@
-const CACHE = 'umniki-v4';
+const CACHE = 'umniki-v5';
 const FILES = ['./', 'index.html', 'styles.css', 'gens.js', 'app.js', 'manifest.webmanifest',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
 self.addEventListener('install', e => {
@@ -10,6 +10,7 @@ self.addEventListener('activate', e => {
 });
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
+  if (new URL(e.request.url).origin !== location.origin) return;   // Firebase/Google — напрямую, без кэша
   // сеть в приоритете (чтобы обновления доезжали), кэш — запасной вариант для офлайна
   e.respondWith(fetch(e.request).then(r => {
     const copy = r.clone();
