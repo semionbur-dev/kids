@@ -204,3 +204,4 @@ h1,h2,h3,.h1,.rt,.nm,.result h1{font-family:var(--disp);font-weight:700;letter-s
 .spk:active{transform:translateY(3px);box-shadow:0 0 0 var(--ink)}
 
 .chips.voices .vc{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.share a.chip2{color:var(--ink);text-decoration:none;display:inline-flex;align-items:center}

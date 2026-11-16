@@ -106,6 +106,11 @@ builders['🤖'] = () => { const p = base({ color: 0x86b8ff, noFace: true, shape
   p.mouth = tor(b, .14, .03, Math.PI, 0x55f0ff, [0, .96, .94], { outline: false, r: [0, 0, Math.PI] });
   cyl(b, .04, .04, .45, 0x2a2562, [0, 2.1, 0]); p.tail = sph(b, .13, 0xff5d8f, [0, 2.38, 0]); return p; };
 
+builders['🦖'] = () => { const p = base({ color: 0x59c97a, belly: 0xfff1b8, shape: [1, .96, .98] }); const b = p.body;
+  for (let i = 0; i < 4; i++) cone(b, .17 - i * .015, .34, 0xff8a3d, [0, 2.0 - i * .2, -.2 - i * .28], { r: [-.45 - i * .25, 0, 0] });
+  for (const sx of [-1, 1]) sph(b, .09, 0x2f8a4f, [sx * .22, .98, 1.0], [1, .8, .6], { outline: false });
+  p.tail = cone(p.g, .28, 1.0, 0x59c97a, [0, .55, -1.25], { r: [-1.25, 0, 0] }); return p; };
+
 /* ---------- шляпы ---------- */
 const hats = {
   '🧢': g => { const h = new T.Group(); sph(h, .85, 0xff5d5d, [0, 0, 0], [1, .7, 1]); box(h, 1.0, .08, .7, 0xff5d5d, [0, -.14, .85]); g.add(h); return h; },
@@ -113,6 +118,7 @@ const hats = {
   '🎓': g => { const h = new T.Group(); cyl(h, .6, .6, .3, 0x2a2562, [0, 0, 0]); box(h, 1.7, .08, 1.7, 0x2a2562, [0, .2, 0]); cyl(h, .02, .02, .6, 0xffc21a, [.7, .0, .7], { outline: false }); g.add(h); return h; },
   '🎧': g => { const h = new T.Group(); tor(h, 1.0, .07, Math.PI, 0x2a2562, [0, -.5, 0]); for (const sx of [-1, 1]) cyl(h, .3, .3, .22, 0xff5d8f, [sx * 1.02, -.5, 0], { r: [0, 0, Math.PI / 2] }); g.add(h); return h; },
   '🎩': g => { const h = new T.Group(); cyl(h, .62, .62, .9, 0x2a2562, [0, .3, 0]); cyl(h, 1.0, 1.0, .1, 0x2a2562, [0, -.15, 0]); cyl(h, .63, .63, .16, 0xff5d8f, [0, .0, 0], { outline: false }); g.add(h); return h; },
+  '🎉': g => { const h = new T.Group(); cyl(h, .02, .62, 1.15, 0xff5d8f, [0, .3, 0]); tor(h, .44, .05, Math.PI * 2, 0xffc21a, [0, .02, 0], { r: [Math.PI / 2, 0, 0] }); tor(h, .3, .05, Math.PI * 2, 0x55d0ff, [0, .38, 0], { r: [Math.PI / 2, 0, 0] }); sph(h, .15, 0xffc21a, [0, .95, 0]); g.add(h); return h; },
   '👑': g => { const h = new T.Group(); cyl(h, .6, .6, .35, 0xffc21a, [0, 0, 0]); for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2; cone(h, .14, .38, 0xffc21a, [Math.cos(a) * .52, .35, Math.sin(a) * .52]); sph(h, .07, 0xff5d8f, [Math.cos(a) * .52, .58, Math.sin(a) * .52], [1, 1, 1], { outline: false }); } g.add(h); return h; },
 };
 

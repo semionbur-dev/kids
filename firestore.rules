@@ -5,5 +5,31 @@ service cloud.firestore {
     match /users/{uid} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }
+
+    // Приглашения друзей: код принадлежит одному владельцу; считать друзей и награждать может только он
+    match /invites/{code} {
+      allow get: if request.auth != null;                     // проверить, что код существует
+      allow create: if request.auth != null
+        && request.resource.data.owner == request.auth.uid
+        && request.resource.data.keys().hasOnly(['owner', 'at']);
+      allow delete: if request.auth != null && resource.data.owner == request.auth.uid;
+
+      match /joins/{joiner} {
+        allow read: if request.auth != null
+          && get(/databases/$(database)/documents/invites/$(code)).data.owner == request.auth.uid;
+        // друг записывается один раз (update запрещён), сам себя и только под тем кодом, что записан в referredBy
+        allow create: if request.auth != null && request.auth.uid == joiner
+          && get(/databases/$(database)/documents/invites/$(code)).data.owner != request.auth.uid
+          && getAfter(/databases/$(database)/documents/referredBy/$(joiner)).data.code == code;
+        allow delete: if request.auth != null && request.auth.uid == joiner;
+      }
+    }
+
+    // «Кто меня позвал»: одна запись на аккаунт, изменить нельзя
+    match /referredBy/{uid} {
+      allow create: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['code', 'at']);
+      allow read, delete: if request.auth != null && request.auth.uid == uid;
+    }
   }
 }

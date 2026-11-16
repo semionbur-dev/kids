@@ -22,7 +22,7 @@ const f={initializeApp(){},auth:()=>auth,firestore:()=>fs};f.auth.GoogleAuthProv
   ok(await U(p, () => !!document.querySelector('#cb') && /без рекламы/.test(document.querySelector('#cb').innerText)), 'первый запуск: баннер о приватности');
   await p.tap('[data-a=obage][data-n="7"]'); await p.fill('#nm', 'Маша'); await p.tap('[data-a=obstart]');
   ok(await U(p, () => !!document.querySelector('#cb')), 'баннер остаётся, пока его не закрыли');
-  await p.tap('#cb [data-a=privacy]'); ok(await U(p, () => document.querySelectorAll('.pv').length === 6 && !document.querySelector('#cb')), 'политика: 6 разделов, баннер на этом экране скрыт');
+  await p.tap('#cb [data-a=privacy]'); ok(await U(p, () => document.querySelectorAll('.pv').length === 7 && !document.querySelector('#cb')), 'политика: 7 разделов, баннер на этом экране скрыт');
   await p.tap('[data-a=privback]'); await p.tap('#cb [data-a=cbok]'); ok(await U(p, () => !document.querySelector('#cb')), '«Понятно» закрывает баннер');
   await p.reload(); await p.waitForTimeout(200); ok(await U(p, () => !document.querySelector('#cb')), 'после перезапуска баннер не возвращается');
   await p.evaluate(() => { window.__umniki.A.profile(); }); await p.waitForTimeout(300);

@@ -1,7 +1,7 @@
 'use strict';
 (() => {
 const { GENS, LANGS, rnd, pick, shuffle, esc, t: tt, setLang, getLang, generate } = window.Gens;
-const BUILD = 'v22';
+const BUILD = 'v23';
 const P = pair => pair[LANGS.indexOf(getLang())];
 const LANG_NAMES = { be: 'Беларуская', ru: 'Русский', cs: 'Čeština', en: 'English' };
 const langOk = l => (LANGS.includes(l) ? l : 'ru');
@@ -26,16 +26,18 @@ const PETS = [
   { e: '🦊', n: ['Лис', 'Ліс', 'Liška', 'Fox'], p: 30 }, { e: '🐼', n: ['Панда', 'Панда', 'Panda', 'Panda'], p: 40 }, { e: '🐸', n: ['Лягушонок', 'Жабянё', 'Žabka', 'Froggy'], p: 40 },
   { e: '🦉', n: ['Сова', 'Сава', 'Sova', 'Owl'], p: 50 }, { e: '🐧', n: ['Пингвин', 'Пінгвін', 'Tučňák', 'Penguin'], p: 50 }, { e: '🐙', n: ['Осьминог', 'Васьміног', 'Chobotnice', 'Octopus'], p: 60 },
   { e: '🦁', n: ['Лев', 'Леў', 'Lev', 'Lion'], p: 70 }, { e: '🦄', n: ['Единорог', 'Аднарог', 'Jednorožec', 'Unicorn'], p: 80 }, { e: '🐲', n: ['Дракон', 'Цмок', 'Drak', 'Dragon'], p: 100 },
-  { e: '🤖', n: ['Робот', 'Робат', 'Robot', 'Robot'], p: 100 },
+  { e: '🤖', n: ['Робот', 'Робат', 'Robot', 'Robot'], p: 100 }, { e: '🦖', n: ['Динозаврик', 'Дзінязаўр', 'Dinosaurus', 'Dino'], p: 0, ref: 3 },
 ];
 const HATS = [
   { e: '🧢', n: ['Кепка', 'Кепка', 'Kšiltovka', 'Cap'], p: 20 }, { e: '🎀', n: ['Бантик', 'Бант', 'Mašle', 'Bow'], p: 20 },
   { e: '🎓', n: ['Шапочка выпускника', 'Шапачка выпускніка', 'Absolventská čepice', 'Graduation cap'], p: 30 },
   { e: '🎧', n: ['Наушники', 'Навушнікі', 'Sluchátka', 'Headphones'], p: 40 }, { e: '🎩', n: ['Цилиндр', 'Цыліндр', 'Cylindr', 'Top hat'], p: 50 },
-  { e: '👑', n: ['Корона', 'Карона', 'Koruna', 'Crown'], p: 80 },
+  { e: '👑', n: ['Корона', 'Карона', 'Koruna', 'Crown'], p: 80 }, { e: '🎉', n: ['Праздничный колпак', 'Святочны каўпак', 'Slavnostní čepice', 'Party hat'], p: 0, ref: 1 },
 ];
 
 const ACH = [
+  { id: 'friends1', i: '🤝', t: ['Позвал друга', 'Паклікаў сябра', 'Pozval kamaráda', 'Invited a friend'], d: ['Друг начал заниматься по твоей ссылке', 'Сябар пачаў займацца па тваёй спасылцы', 'Kamarád začal cvičit z tvého odkazu', 'A friend started from your link'], ok: () => (FAM.ref.claimed || 0) >= 1 },
+  { id: 'friends5', i: '🎪', t: ['Душа компании', 'Душа кампаніі', 'Duše party', 'Life of the party'], d: ['Пять друзей пришли по твоей ссылке', 'Пяць сяброў прыйшлі па тваёй спасылцы', 'Pět kamarádů přišlo z tvého odkazu', 'Five friends joined from your link'], ok: () => (FAM.ref.claimed || 0) >= 5 },
   { id: 'first', i: '🌱', t: ['Первый шаг', 'Першы крок', 'První krok', 'First step'], d: ['Пройди первый урок', 'Прайдзі першы ўрок', 'Dokonči první lekci', 'Complete your first lesson'], ok: s => s.stat.lessons >= 1 },
   { id: 'l10', i: '📚', t: ['Ученик', 'Вучань', 'Žák', 'Pupil'], d: ['Пройди 10 уроков', 'Прайдзі 10 урокаў', 'Dokonči 10 lekcí', 'Complete 10 lessons'], ok: s => s.stat.lessons >= 10 },
   { id: 'l30', i: '🎒', t: ['Отличник', 'Выдатнік', 'Premiant', 'Top student'], d: ['Пройди 30 уроков', 'Прайдзі 30 урокаў', 'Dokonči 30 lekcí', 'Complete 30 lessons'], ok: s => s.stat.lessons >= 30 },
@@ -70,7 +72,22 @@ let S;
 const OLD_KEYS = ['hearts', 'heartAt', 'streak', 'bestStreak', 'lastDay', 'todayDate', 'todayXp', 'goalPaid'];
 const speakDefault = age => (Skills.isYoungAge(age) ? 'auto' : 'tap');   // малыши 5–7: задания читаются сами
 const KEY2 = 'umniki.v2', MAX_KIDS = 3;
-let FAM = { kids: [], parent: null, consent: { seen: '', cloud: '' } };   // семья: до 3 детских профилей и общий родительский PIN/лимит
+let FAM = { kids: [], parent: null, consent: { seen: '', cloud: '' }, ref: { code: '', by: '', sent: false, claimed: 0, count: 0 } };   // семья: до 3 детских профилей и общий родительский PIN/лимит
+/* ---------- приглашения друзей ---------- */
+const PUBLIC_URL = 'https://semionbur-dev.github.io/kids/', REF_BONUS = 30, REF_KEY = 'umniki.ref';
+const newCode = () => { let c = ''; while (c.length < 8) c += Math.random().toString(36).slice(2); return c.slice(0, 8); };
+let pendingRef = '';   // код друга, по ссылке которого открыли приложение (ещё не использованный)
+(function landing() {
+  try {
+    const u = new URL(location.href), r = (u.searchParams.get('ref') || '').toLowerCase();
+    if (/^[a-z0-9]{6,12}$/.test(r)) { localStorage.setItem(REF_KEY, r); u.searchParams.delete('ref'); history.replaceState(null, '', u.pathname + (u.search || '') + u.hash); }
+    pendingRef = localStorage.getItem(REF_KEY) || '';
+  } catch (e) {}
+})();
+const refUnlocked = it => !!it.ref && (FAM.ref.claimed | 0) >= it.ref;
+function applyRefItems() {   // награды за друзей кладём в коллекцию каждого ребёнка (так их не сбрасывает слияние с облаком)
+  for (const k of FAM.kids) { for (const it of PETS) if (refUnlocked(it) && !k.pets.includes(it.e)) k.pets.push(it.e); for (const it of HATS) if (refUnlocked(it) && !k.hats.includes(it.e)) k.hats.push(it.e); }
+}
 const newId = () => 'k' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
 function norm(raw) {   // приводит сохранённое состояние ребёнка к актуальному виду
   const s = Object.assign(defState(), raw || {});
@@ -92,12 +109,13 @@ function useKid(id) {
   S.parent = FAM.parent; applyLang();
 }
 function setFam(raw) {
-  FAM = { kids: [], parent: Skills.fixParent(raw && raw.parent), consent: Object.assign({ seen: '', cloud: '' }, (raw && raw.consent) || {}) };
+  FAM = { kids: [], parent: Skills.fixParent(raw && raw.parent), consent: Object.assign({ seen: '', cloud: '' }, (raw && raw.consent) || {}), ref: Object.assign({ code: '', by: '', sent: false, claimed: 0, count: 0 }, (raw && raw.ref) || {}) };
   const ids = new Set();
   for (const k of (raw && raw.kids) || []) { const x = norm(k); if (!x.id || ids.has(x.id)) x.id = newId(); ids.add(x.id); FAM.kids.push(x); }
+  FAM.ref.claimed = Math.max(0, FAM.ref.claimed | 0); FAM.ref.count = 0; applyRefItems();
   useKid(raw && raw.active);
 }
-const famJSON = (cloud) => ({ v: 2, active: S.id, parent: clone(FAM.parent), ...(cloud ? {} : { consent: clone(FAM.consent) }), kids: FAM.kids.map(k => { const c = Object.assign({}, k); delete c.parent; return c; }) });
+const famJSON = (cloud) => ({ v: 2, active: S.id, parent: clone(FAM.parent), ref: { code: FAM.ref.code, by: FAM.ref.by, sent: !!FAM.ref.sent, claimed: FAM.ref.claimed | 0 }, ...(cloud ? {} : { consent: clone(FAM.consent) }), kids: FAM.kids.map(k => { const c = Object.assign({}, k); delete c.parent; return c; }) });
 function load() {
   let v2 = null, v1 = null;
   try { v2 = JSON.parse(localStorage.getItem(KEY2)); } catch (e) {}
@@ -226,13 +244,14 @@ const tabs = on => `<nav class="tabs">${[['home', '🏠', tt('Учёба', 'На
 
 /* вход нового экрана / нового вопроса: короткий выезд снизу (при «уменьшить движение» CSS отключает анимацию) */
 const enter = el => { if (!el) return; el.classList.remove('enter'); void el.offsetWidth; el.classList.add('enter'); };
-let prevR = null;
+let prevR = null, lastInv = 0;
 function render() {
   if (!S.name) R = 'onboard';
   if (!['parent', 'report', 'kid', 'gloss', 'privacy'].includes(R)) parentOK = false;
   if ((R === 'parent' || R === 'report') && !parentOK) { PN = { mode: Skills.hasPin(S.parent) ? 'enter' : 'set', buf: '', first: '', next: R, back: 'profile', err: '' }; R = 'pin'; }
   if (R !== 'lesson' && window.Speech) Speech.stop();
   if (R === 'kid' && !parentOK) R = 'profile';
+  if (R === 'parent' && fbUser && Date.now() - (lastInv || 0) > 20000) { lastInv = Date.now(); refreshInvites(); }
   if (R === 'profile' || R === 'onboard') prefetchFb();
   ({ onboard: rOnboard, home: rHome, shop: rShop, awards: rAwards, profile: rProfile, report: rReport, chess: rChess, pin: rPin, parent: rParent, who: rWho, kid: rKid, gloss: rGloss, privacy: rPrivacy, timeup: rTimeup, lesson: rLesson, result: rResult })[R]();
   window.scrollTo(0, 0); renderBanner();
@@ -246,6 +265,7 @@ const ageChips = (cur, act) => `<div class="chips" style="justify-content:center
 function rOnboard() {
   root.innerHTML = `<div class="onb">${mascot('big', false, { pet: ob.pet, hat: '🎓' }, { live: 1, pose: 'wave' })}<h1>${tt('Умники', 'Разумнікі', `Chytráci`, `Smart Kids`)}</h1>
     <div class="pets lang">${Object.entries(LANG_NAMES).map(([c, n]) => `<button class="${S.lang === c ? 'on' : ''}" data-a="lang" data-l="${c}">${n}</button>`).join('')}</div>
+    ${pendingRef && !FAM.ref.by ? `<div class="evt" style="text-align:center">👋 ${tt(`Тебя позвал друг! Начни заниматься — получишь +${REF_BONUS} 🪙`, `Цябе паклікаў сябар! Пачні займацца — атрымаеш +${REF_BONUS} 🪙`, `Tvůj kamarád tě zve! Začni cvičit a získáš +${REF_BONUS} 🪙`, `A friend invited you! Start practising and get +${REF_BONUS} 🪙`)}</div>` : ''}
     <p>${tt('Математика и логика в игре! Как тебя зовут?', 'Матэматыка і логіка ў гульні! Як цябе клічуць?', `Matematika a logika hrou! Jak se jmenuješ?`, `Maths and logic as a game! What is your name?`)}</p>
     <input id="nm" aria-label="${tt('Твоё имя', 'Тваё імя', `Tvoje jméno`, `Your name`)}" maxlength="14" placeholder="${tt('Твоё имя', 'Тваё імя', `Tvoje jméno`, `Your name`)}" autocomplete="off" value="${esc(S.name)}">
     <p>${tt('Сколько тебе лет?', 'Колькі табе гадоў?', `Kolik ti je let?`, `How old are you?`)}</p>${ageChips(ob.age, 'obage')}
@@ -280,24 +300,28 @@ const PRIVACY = {
     ['Реклама и трекеры', 'Нет рекламы, нет аналитики и сторонних трекеров. Единственный внешний сервис — Google Firebase, он подключается только после вашего согласия на вход через Google.'],
     ['Cookie и память браузера', 'Используется только необходимая память браузера (localStorage) для работы игры и кэш для работы без интернета. Рекламных и аналитических cookie нет, поэтому отдельное согласие на них не требуется.'],
     ['Ваши права', 'В «Родительской зоне» → «Данные и приватность»: скачать все данные (файл JSON), удалить их навсегда (на устройстве и в облаке) и отозвать согласие на облако.'],
+    ['Приглашения', 'Ссылка «позвать друга» содержит только случайный код, без имён и данных детей. Если друг войдёт через Google, в облаке сохранится запись «этот аккаунт пришёл по такому-то коду» — только для подсчёта наград; её можно удалить вместе со всеми данными.'],
     ['Дети', 'Профили, облако и удаление данных защищены родительским PIN. Это краткое описание, а не юридический документ.']],
   be: [['Што мы захоўваем', 'Імя або псеўданім дзіцяці, узрост, вынікі заданняў, узнагароды і налады. Прозвішча, фота, адрас і дакладная дата нараджэння не патрэбныя і не запытваюцца.'],
     ['Дзе', 'Па змаўчанні — толькі ў памяці браўзера на гэтай прыладзе. Воблачнае захаванне бацька ўключае па жаданні: тады тыя ж даныя захоўваюцца ў сэрвісе Google Firebase (Firestore) у вашым акаўнце Google, доступ толькі ў вас.'],
     ['Рэклама і трэкеры', 'Няма рэкламы, аналітыкі і староніх трэкераў. Адзіны знешні сэрвіс — Google Firebase, ён падключаецца толькі пасля вашай згоды на ўваход праз Google.'],
     ['Cookie і памяць браўзера', 'Выкарыстоўваецца толькі неабходная памяць браўзера (localStorage) для працы гульні і кэш для працы без інтэрнэту. Рэкламных і аналітычных cookie няма, таму асобная згода на іх не патрэбная.'],
     ['Вашы правы', 'У «Бацькоўскай зоне» → «Даныя і прыватнасць»: спампаваць усе даныя (файл JSON), выдаліць іх назаўжды (на прыладзе і ў воблаку) і адклікаць згоду на воблака.'],
+    ['Запрашэнні', 'Спасылка «паклікаць сябра» змяшчае толькі выпадковы код, без імёнаў і даных дзяцей. Калі сябар увойдзе праз Google, у воблаку захаваецца запіс «гэты акаўнт прыйшоў па такім кодзе» — толькі для падліку ўзнагарод; яго можна выдаліць разам з усімі данымі.'],
     ['Дзеці', 'Профілі, воблака і выдаленне даных абаронены бацькоўскім PIN. Гэта кароткае апісанне, а не юрыдычны дакумент.']],
   cs: [['Co ukládáme', 'Jméno či přezdívku dítěte, věk, výsledky úloh, odměny a nastavení. Příjmení, fotku, adresu ani přesné datum narození nepotřebujeme a nežádáme.'],
     ['Kde', 'Ve výchozím stavu jen v paměti prohlížeče v tomto zařízení. Ukládání do cloudu zapíná rodič dobrovolně: tytéž údaje se pak ukládají ve službě Google Firebase (Firestore) ve vašem účtu Google a máte k nim přístup jen vy.'],
     ['Reklamy a sledování', 'Žádné reklamy, analytika ani sledovače třetích stran. Jedinou externí službou je Google Firebase, která se připojí až po vašem souhlasu s přihlášením přes Google.'],
     ['Cookies a paměť prohlížeče', 'Používáme jen nezbytnou paměť prohlížeče (localStorage) pro chod hry a mezipaměť pro práci bez internetu. Reklamní ani analytické cookies nepoužíváme, proto se na ně souhlas nevyžaduje.'],
     ['Vaše práva', 'V „Rodičovské zóně“ → „Data a soukromí“: stáhnout všechna data (soubor JSON), trvale je smazat (v zařízení i v cloudu) a odvolat souhlas s cloudem.'],
+    ['Pozvánky', 'Odkaz „pozvat kamaráda“ obsahuje jen náhodný kód, žádná jména ani údaje o dětech. Pokud se kamarád přihlásí přes Google, v cloudu se uloží záznam „tento účet přišel pod kódem“ – jen pro počítání odměn; lze jej smazat spolu se všemi daty.'],
     ['Děti', 'Profily, cloud a mazání dat chrání rodičovský PIN. Je to stručný popis, nikoli právní dokument.']],
   en: [['What we store', 'The child’s name or nickname, age, task results, rewards and settings. We do not need or ask for a surname, photo, address or exact date of birth.'],
     ['Where', 'By default only in the browser storage on this device. A parent can optionally turn on cloud saving: the same data is then kept in Google Firebase (Firestore) under your Google account, and only you can access it.'],
     ['Ads and trackers', 'No ads, no analytics and no third-party trackers. The only external service is Google Firebase, connected only after you agree to sign in with Google.'],
     ['Cookies and browser storage', 'Only the browser storage necessary to run the game (localStorage) and a cache for offline use are used. There are no advertising or analytics cookies, so no separate consent is needed for them.'],
     ['Your rights', 'In the Parents’ zone → “Data and privacy”: download all data (a JSON file), delete it permanently (on the device and in the cloud) and withdraw consent to the cloud.'],
+    ['Invitations', 'The “invite a friend” link holds only a random code, no names or children’s data. If a friend signs in with Google, the cloud stores a record “this account came with this code” – only to count rewards; it can be deleted along with all your data.'],
     ['Children', 'Profiles, the cloud and data deletion are protected by the parent PIN. This is a short summary, not a legal document.']],
 };
 function rPrivacy() {
@@ -391,10 +415,10 @@ function rHome() {
 /* ---------- магазин ---------- */
 function rShop() {
   const card = (it, kind) => {
-    const own = kind === 'pet' ? S.pets.includes(it.e) : S.hats.includes(it.e), on = kind === 'pet' ? S.pet === it.e : S.hat === it.e;
+    const own = (kind === 'pet' ? S.pets.includes(it.e) : S.hats.includes(it.e)) || refUnlocked(it), on = kind === 'pet' ? S.pet === it.e : S.hat === it.e;
     return `<div class="card${on ? ' on' : ''}${own ? '' : ' lock'}"><div class="em avatar" data-av="${kind === 'pet' ? it.e : S.pet}" data-hat="${kind === 'hat' ? it.e : ''}"><span class="pet">${it.e}</span></div><div class="ttl">${P(it.n)}</div>` +
       (own ? `<button class="btn ${on ? 'ghost' : 'grn'}" data-a="equip" data-k="${kind}" data-e="${it.e}">${on ? (kind === 'hat' ? tt('Снять', 'Зняць', `Sundat`, `Take off`) : tt('Выбран', 'Абраны', `Vybráno`, `Selected`)) : tt('Выбрать', 'Абраць', `Vybrat`, `Select`)}</button>`
-        : `<button class="btn yel" data-a="buy" data-k="${kind}" data-e="${it.e}">🪙 ${it.p}</button>`) + '</div>';
+        : it.ref ? `<button class="btn ghost" disabled>🤝 ${it.ref} ${tt('друз.', 'сяб.', `kam.`, `friends`)}</button>` : `<button class="btn yel" data-a="buy" data-k="${kind}" data-e="${it.e}">🪙 ${it.p}</button>`) + '</div>';
   };
   root.innerHTML = topBar() + `<div class="page"><div class="h1">${tt('Магазин', 'Крама', `Obchod`, `Shop`)}</div>
     <div class="hero">${mascot('', false, S, { pose: 'wave' })}<div class="bubble">${tt('Зарабатывай монеты на занятиях и открывай новых друзей и наряды!', 'Зарабляй манеты на занятках і адкрывай новых сяброў і ўборы!', `Získávej mince při cvičení a odemykej nové kamarády a oblečení!`, `Earn coins while practising and unlock new friends and outfits!`)}</div></div>
@@ -478,6 +502,14 @@ function rParent() {
       : `<div class="row2"><button class="btn blu sm" data-a="login">🔑 ${tt('Войти через Google и сохранить прогресс', 'Увайсці праз Google і захаваць прагрэс', `Přihlásit se přes Google a uložit postup`, `Sign in with Google and save progress`)}</button></div>`}
     <div class="sect">🌐 ${tt('Язык', 'Мова', 'Jazyk', 'Language')}</div>
     <div class="pets lang">${Object.entries(LANG_NAMES).map(([c, n]) => `<button class="${S.lang === c ? 'on' : ''}" data-a="lang" data-l="${c}">${n}</button>`).join('')}</div>
+    <div class="sect">🎁 ${tt('Позвать друзей', 'Паклікаць сяброў', `Pozvat kamarády`, `Invite friends`)}</div>
+    <div class="rs" style="margin:0 2px 8px">${tt(`За каждого друга, который начнёт заниматься и войдёт через Google: +${REF_BONUS} 🪙 каждому ребёнку. 1 друг — праздничный колпак 🎉, 3 — динозаврик 🦖, 5 — ещё +100 🪙 и достижение. В ссылке только случайный код, без имён и данных детей.`, `За кожнага сябра, які пачне займацца і ўвойдзе праз Google: +${REF_BONUS} 🪙 кожнаму дзіцяці. 1 сябар — святочны каўпак 🎉, 3 — дзінязаўрык 🦖, 5 — яшчэ +100 🪙 і дасягненне. У спасылцы толькі выпадковы код, без імёнаў і даных дзяцей.`, `Za každého kamaráda, který začne cvičit a přihlásí se přes Google: +${REF_BONUS} 🪙 každému dítěti. 1 kamarád – slavnostní čepice 🎉, 3 – dinosaurus 🦖, 5 – dalších +100 🪙 a úspěch. V odkazu je jen náhodný kód, žádná jména ani údaje o dětech.`, `For each friend who starts practising and signs in with Google: +${REF_BONUS} 🪙 for every child. 1 friend – party hat 🎉, 3 – dino 🦖, 5 – another +100 🪙 and an achievement. The link holds only a random code, no names or children's data.`)}</div>
+    ${(() => { if (!FAM.ref.code) { FAM.ref.code = newCode(); save({ nopush: true }); } const sh = shareInfo();
+      return `<div class="chips share">
+        <a class="chip2" href="${sh.wa}" target="_blank" rel="noopener">WhatsApp</a><a class="chip2" href="${sh.tg}" target="_blank" rel="noopener">Telegram</a><a class="chip2" href="${sh.mail}">✉️ ${tt('Почта', 'Пошта', `E-mail`, `E-mail`)}</a>
+        ${navigator.share ? `<button class="chip2" data-a="sharenative">📤 ${tt('Поделиться', 'Падзяліцца', `Sdílet`, `Share`)}</button>` : ''}<button class="chip2" data-a="copyref">📋 ${tt('Копировать', 'Капіяваць', `Kopírovat`, `Copy`)}</button></div>
+      <div class="rs" style="margin:6px 2px 8px;word-break:break-all">${esc(sh.url)}</div>
+      <div class="rs" style="margin:0 2px 10px">${fbUser && FAM.consent.cloud ? `🤝 ${tt('Пришло друзей', 'Прыйшло сяброў', `Přišlo kamarádů`, `Friends joined`)}: <b>${FAM.ref.count | 0}</b>` : tt('Чтобы считать друзей и получать награды, войдите через Google (раздел «Аккаунт»).', 'Каб лічыць сяброў і атрымліваць узнагароды, увайдзіце праз Google (раздзел «Акаўнт»).', `Abyste mohli počítat kamarády a získávat odměny, přihlaste se přes Google (část „Účet“).`, `To count friends and get rewards, sign in with Google (the “Account” section).`)}</div>`; })()}
     <div class="sect">🛡 ${tt('Данные и приватность', 'Даныя і прыватнасць', `Data a soukromí`, `Data and privacy`)}</div>
     <div class="rs" style="margin:0 2px 6px">☁️ ${FAM.consent.cloud ? tt('Облако разрешено', 'Воблака дазволена', `Cloud povolen`, `Cloud allowed`) + ' · ' + FAM.consent.cloud.slice(0, 10) : tt('Облако не включено: данные только на этом устройстве.', 'Воблака не ўключана: даныя толькі на гэтай прыладзе.', `Cloud není zapnutý: data jsou jen v tomto zařízení.`, `Cloud is off: data stays on this device only.`)}</div>
     <div class="row2"><button class="btn ghost sm" data-a="privacy">📄 ${tt('Политика', 'Палітыка', `Zásady`, `Policy`)}</button><button class="btn ghost sm" data-a="exportdata">⬇️ ${tt('Скачать данные', 'Спампаваць даныя', `Stáhnout data`, `Download data`)}</button></div>
@@ -789,7 +821,7 @@ function next() {
 
 /* ---------- завершение занятия ---------- */
 function finish() {
-  clearTimeout(L.timer); tickTime();
+  clearTimeout(L.timer); tickTime(); setTimeout(registerReferral, 1500);
   const events = [], lvBefore = lvl(S.xp), total = L.counted, ok = L.firstOK, stars = Skills.starsFor(ok, total), perfect = L.mistakes === 0;
   let xp = 5 * ok + 5 + (perfect ? 10 : 0), coins = ok + stars * 2, routeDone = false;
   if (L.lesson) S.chessLessons[L.lesson] = Math.max(S.chessLessons[L.lesson] || 0, stars);
@@ -893,7 +925,8 @@ function mergeStates(a, b) {
 }
 /* Объединение семьи: дети сопоставляются по id; пустой «новый» профиль на этом устройстве не плодит дубликатов */
 function mergeFam(a, b) {
-  const out = { kids: [], parent: Skills.mergeParent(Skills.fixParent(a.parent), Skills.fixParent(b.parent)), active: a.active };
+  const ra = a.ref || {}, rb = b.ref || {};
+  const out = { kids: [], parent: Skills.mergeParent(Skills.fixParent(a.parent), Skills.fixParent(b.parent)), active: a.active, ref: { code: ra.code || rb.code || '', by: ra.by || rb.by || '', sent: !!(ra.sent || rb.sent), claimed: Math.max(ra.claimed | 0, rb.claimed | 0) } };
   const bm = new Map(b.kids.map(k => [k.id, k])), seen = new Set();
   for (const ka of a.kids) {
     const kb = bm.get(ka.id); seen.add(ka.id);
@@ -905,6 +938,44 @@ function mergeFam(a, b) {
 }
 const famFromCloud = d => d && d.fam && Array.isArray(d.fam.kids) ? d.fam
   : d && d.s ? { kids: [Object.assign({}, d.s, { id: d.s.id || 'k1' })], parent: d.s.parent, active: d.s.id || 'k1' } : null;
+/* ---------- приглашения на сервере: invites/{код} (владелец), invites/{код}/joins/{uid} (друзья), referredBy/{uid} (кто позвал меня) ---------- */
+async function ensureInvite() {
+  if (!fbUser || !fbDb || !FAM.consent.cloud) return false;
+  if (!FAM.ref.code) { FAM.ref.code = newCode(); save({ nopush: true }); }
+  try {
+    const d = fbDb.collection('invites').doc(FAM.ref.code), snap = await d.get();
+    if (!snap.exists) await d.set({ owner: fbUser.uid, at: Date.now() });
+    else if ((snap.data() || {}).owner !== fbUser.uid) { FAM.ref.code = newCode(); save({ nopush: true }); return ensureInvite(); }   // код занят другим — берём новый
+    return true;
+  } catch (e) { return false; }
+}
+async function refreshInvites() {
+  if (!(await ensureInvite())) return;
+  try {
+    const snap = await fbDb.collection('invites').doc(FAM.ref.code).collection('joins').get();
+    FAM.ref.count = snap.size != null ? snap.size : (snap.docs || []).length; claimRewards();
+    if (R === 'parent') render();
+  } catch (e) {}
+}
+function claimRewards() {   // награды за новых друзей: монеты каждому ребёнку и подарки по ступеням 1 / 3 / 5
+  const n = FAM.ref.count | 0, c = FAM.ref.claimed | 0; if (n <= c) return;
+  const add = n - c, big = c < 5 && n >= 5;
+  for (const k of FAM.kids) { k.coins += REF_BONUS * add + (big ? 100 : 0); }
+  FAM.ref.claimed = n; applyRefItems();
+  for (const k of FAM.kids) for (const a of ACH) if (/^friends/.test(a.id) && !k.ach[a.id] && a.ok(k)) { k.ach[a.id] = today(); }
+  save(); sfx.coin && sfx.coin();
+  toast(tt(`Друзей пришло: +${add}! Каждому ребёнку +${REF_BONUS * add + (big ? 100 : 0)} 🪙`, `Сяброў прыйшло: +${add}! Кожнаму дзіцяці +${REF_BONUS * add + (big ? 100 : 0)} 🪙`, `Přišlo kamarádů: +${add}! Každému dítěti +${REF_BONUS * add + (big ? 100 : 0)} 🪙`, `New friends: +${add}! Every child gets +${REF_BONUS * add + (big ? 100 : 0)} 🪙`));
+}
+async function registerReferral() {   // новичок после первого пройденного занятия и входа через Google сообщает, кто его позвал
+  const r = FAM.ref; if (!fbUser || !fbDb || !FAM.consent.cloud || !r.by || r.sent || r.by === r.code) return;
+  if (FAM.kids.reduce((a, k) => a + ((k.stat && k.stat.lessons) || 0), 0) < 1) return;
+  try {
+    const b = fbDb.batch();
+    b.set(fbDb.collection('referredBy').doc(fbUser.uid), { code: r.by, at: Date.now() });
+    b.set(fbDb.collection('invites').doc(r.by).collection('joins').doc(fbUser.uid), { at: Date.now() });
+    await b.commit(); r.sent = true; save();
+  } catch (e) { /* код не найден или нет связи — попробуем в следующий раз */ }
+}
 let noPush = false;
 async function pushNow() {
   if (!fbUser || !fbDb || noPush) return;
@@ -923,11 +994,11 @@ async function onAuth(user) {
     const snap = await fbDb.collection('users').doc(user.uid).get(), remote = snap.exists ? famFromCloud(snap.data() || {}) : null;
     if (remote) {
       const keep = S.id, rk = remote.kids.map(k => Object.assign(norm(k), { id: k.id || 'k1' }));
-      setFam(mergeFam({ kids: FAM.kids, parent: FAM.parent, active: S.id }, { kids: rk, parent: remote.parent }));
+      setFam(mergeFam({ kids: FAM.kids, parent: FAM.parent, active: S.id, ref: FAM.ref }, { kids: rk, parent: remote.parent, ref: remote.ref }));
       if (keep && FAM.kids.some(k => k.id === keep)) useKid(keep);
     }
     if (pinResetPending) { pinResetPending = false; S.parent.pin = ''; S.parent.salt = ''; PN = { mode: 'set', buf: '', first: '', next: 'parent', back: 'profile', err: '' }; R = 'pin'; }
-    save({ nopush: true }); await pushNow(); setCloud('ok');
+    save({ nopush: true }); await pushNow(); setCloud('ok'); registerReferral(); if (R === 'parent') refreshInvites();
     if (S.name && R === 'onboard') R = FAM.kids.length > 1 ? 'who' : 'home';
     if (R !== 'lesson' && R !== 'result') render();
   } catch (e) { console.warn('cloud', e); setCloud('error'); }
@@ -967,6 +1038,12 @@ function press(k) {
   if (k === 'b') L.input = L.input.slice(0, -1); else if (k === 'c') L.input = ''; else if (L.input.length < 6) L.input = (L.input + k).replace(/^0+(?=\d)/, '');
   sfx.tap(); rLesson();
 }
+/* ---------- приглашения: тексты и ссылки для мессенджеров ---------- */
+const SHARE_TEXT = { ru: 'Мы занимаемся в «Умниках»: логика и математика в игре для детей 5–10 лет, без рекламы. Заходите:', be: 'Мы займаемся ў «Разумніках»: логіка і матэматыка ў гульні для дзяцей 5–10 гадоў, без рэкламы. Заходзьце:', cs: 'Cvičíme v aplikaci „Chytráci“: logika a matematika hrou pro děti 5–10 let, bez reklam. Pojďte taky:', en: 'We practise with “Smart Kids”: logic and maths as a game for kids aged 5–10, no ads. Join us:' };
+function shareInfo() {
+  const url = `${PUBLIC_URL}?ref=${FAM.ref.code}`, text = SHARE_TEXT[getLang()], title = tt('Умники', 'Разумнікі', `Chytráci`, `Smart Kids`), enc = encodeURIComponent;
+  return { url, text, title, wa: `https://wa.me/?text=${enc(text + ' ' + url)}`, tg: `https://t.me/share/url?url=${enc(url)}&text=${enc(text)}`, mail: `mailto:?subject=${enc(title)}&body=${enc(text + '\n\n' + url)}` };
+}
 /* ---------- экспорт и удаление данных (GDPR) ---------- */
 const exportData = () => ({ app: 'umniki', format: 1, exportedAt: new Date().toISOString(),
   family: { dailyLimitMin: FAM.parent.limit, parentPinSet: Skills.hasPin(FAM.parent) }, consent: clone(FAM.consent),
@@ -978,7 +1055,11 @@ function downloadJSON(name, obj) {
 }
 async function cloudErase() {   // удаляет документ семьи и аккаунт Firebase; false — если не вышло
   if (!fbUser || !fbDb) return true;
-  try { clearTimeout(pushTimer); pushTimer = null; await fbDb.collection('users').doc(fbUser.uid).delete(); } catch (e) { return false; }
+  try {
+    clearTimeout(pushTimer); pushTimer = null;
+    const r = FAM.ref; try { if (r.by && r.sent) { await fbDb.collection('invites').doc(r.by).collection('joins').doc(fbUser.uid).delete(); } await fbDb.collection('referredBy').doc(fbUser.uid).delete(); if (r.code) await fbDb.collection('invites').doc(r.code).delete(); } catch (e) { /* записей может не быть */ }
+    await fbDb.collection('users').doc(fbUser.uid).delete();
+  } catch (e) { return false; }
   try { await fbUser.delete(); } catch (e) { /* нужен свежий вход — просто выходим, данных в облаке уже нет */ }
   return true;
 }
@@ -1026,7 +1107,7 @@ const A = {
     if (!name) { toast(tt('Напишите имя', 'Напішыце імя', `Napište jméno`, `Type a name`)); return; }
     if (!KF.age) { toast(tt('Выберите возраст', 'Абярыце ўзрост', `Vyberte věk`, `Pick an age`)); return; }
     if (!KF.id) {
-      const k = Object.assign(defState(), { id: newId(), name, age: KF.age, pet: KF.pet, pets: [KF.pet], skills: Skills.newSkills(KF.age), lang: S.lang, speak: speakDefault(KF.age) }); delete k.parent; FAM.kids.push(k);
+      const k = Object.assign(defState(), { id: newId(), name, age: KF.age, pet: KF.pet, pets: [KF.pet], skills: Skills.newSkills(KF.age), lang: S.lang, speak: speakDefault(KF.age) }); delete k.parent; FAM.kids.push(k); applyRefItems();
     } else {
       const k = FAM.kids.find(x => x.id === KF.id); if (!k) return;
       k.name = name; if (k.age !== KF.age) { k.age = KF.age; Skills.applyAge(k.skills, k.age); if (!k.speakSet) k.speak = speakDefault(k.age); }
@@ -1046,7 +1127,9 @@ const A = {
     if (!ob.age) { toast(tt('Выбери свой возраст 🙂', 'Абяры свой ўзрост 🙂', `Vyber svůj věk 🙂`, `Pick your age 🙂`)); return; }
     S.id = S.id || newId(); S.name = v; S.age = ob.age; S.speak = speakDefault(ob.age); S.skills = Skills.newSkills(ob.age); S.pet = ob.pet; S.pets = [ob.pet];
     if (!FAM.kids.includes(S)) FAM.kids.push(S);
-    save(); R = 'home'; render();
+    if (pendingRef && !FAM.ref.by && pendingRef !== FAM.ref.code) { FAM.ref.by = pendingRef; S.coins += REF_BONUS; setTimeout(() => toast(tt(`Приветственный бонус: +${REF_BONUS} 🪙`, `Прывітальны бонус: +${REF_BONUS} 🪙`, `Uvítací bonus: +${REF_BONUS} 🪙`, `Welcome bonus: +${REF_BONUS} 🪙`)), 600); }
+    try { localStorage.removeItem(REF_KEY); } catch (e) {} pendingRef = '';
+    applyRefItems(); save(); R = 'home'; render();
   },
   goto(el) { R = el.dataset.t; phrase = newPhrase(); render(); },
   home() { R = 'home'; phrase = newPhrase(); render(); },
@@ -1081,6 +1164,12 @@ const A = {
   speak() {
     const q = L && L.queue[0]; if (!q) return; const lg = viewLang(q);
     if (window.Speech && Speech.speaking()) { Speech.stop(); return; } if (speakOn(lg)) say(qText(q), lg);
+  },
+  sharenative() { const sh = shareInfo(); try { navigator.share({ title: sh.title, text: sh.text, url: sh.url }).catch(() => {}); } catch (e) {} },
+  copyref() {
+    const url = shareInfo().url, done = () => toast(tt('Ссылка скопирована ✓', 'Спасылка скапіяваная ✓', `Odkaz zkopírován ✓`, `Link copied ✓`));
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(done).catch(() => {});
+    else { const t = document.createElement('textarea'); t.value = url; document.body.appendChild(t); t.select(); try { document.execCommand('copy'); done(); } catch (e) {} t.remove(); }
   },
   speakrate(el) { S.speakRate = el.dataset.m; save(); sfx.tap(); render(); if (window.Speech) { Speech.unlock(); say(SAMPLE[S.lang], S.lang); } },
   voicepick(el) { const l = el.dataset.l; Speech.setPref(l, el.dataset.n); sfx.tap(); render(); Speech.unlock(); say(SAMPLE[l], l); },
@@ -1186,5 +1275,5 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
   navigator.serviceWorker.addEventListener('controllerchange', () => { if (had && !reloaded && R !== 'lesson') { reloaded = true; location.reload(); } });   // вышла новая версия — подхватываем сразу
   navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(r => r.update().catch(() => {})).catch(() => {});
 }
-window.__umniki = { speakOn, BUILD, load, exportData, Avatar: window.Avatar, cloudErase, glossify, FAM: () => FAM, useKid, mergeFam, norm, setFam, famJSON, GENS, S: () => S, L: () => L, A, buildSet, skillPool, sigOf, Chess, mergeStates, defState, clone, SK, availSkills, render, save, setR: v => { R = v; }, unlockParent: () => { parentOK = true; }, clearPinLock: () => { pinLockUntil = 0; pinFails = 0; }, limitLeft };
+window.__umniki = { shareInfo, claimRewards, registerReferral, refreshInvites, ensureInvite, applyRefItems, speakOn, BUILD, load, exportData, Avatar: window.Avatar, cloudErase, glossify, FAM: () => FAM, useKid, mergeFam, norm, setFam, famJSON, GENS, S: () => S, L: () => L, A, buildSet, skillPool, sigOf, Chess, mergeStates, defState, clone, SK, availSkills, render, save, setR: v => { R = v; }, unlockParent: () => { parentOK = true; }, clearPinLock: () => { pinLockUntil = 0; pinFails = 0; }, limitLeft };
 })();

@@ -15,9 +15,9 @@ let fails = 0; const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); 
   let p = await mk(seed); await p.goto(URL); await p.waitForFunction(() => document.querySelector('.hero canvas.av3d'), null, { timeout: 15000 }).catch(() => {});
   ok(await p.evaluate(() => !!document.querySelector('.hero .avatar.on3d canvas.av3d') && getComputedStyle(document.querySelector('.hero .avatar .pet')).display === 'none'), 'главная: персонаж нарисован на живом холсте, эмодзи скрыт');
   ok(await p.evaluate(() => document.querySelectorAll('canvas.av3d').length === 1), 'на экране один живой холст (экономия батареи)');
-  await p.evaluate(() => window.__umniki.A.goto({ dataset: { t: 'shop' } })); await p.waitForFunction(() => document.querySelectorAll('.card .avimg').length >= 19, null, { timeout: 15000 }).catch(() => {});
+  await p.evaluate(() => window.__umniki.A.goto({ dataset: { t: 'shop' } })); await p.waitForFunction(() => document.querySelectorAll('.card .avimg').length >= 21, null, { timeout: 15000 }).catch(() => {});
   const shop = await p.evaluate(() => ({ n: document.querySelectorAll('.card .avimg').length, ok: [...document.querySelectorAll('.card .avimg')].every(i => i.src.startsWith('data:image/png') && i.src.length > 1500), uniq: new Set([...document.querySelectorAll('.card .avimg')].map(i => i.src)).size }));
-  ok(shop.n === 19 && shop.ok && shop.uniq === 19, 'магазин: 13 питомцев и 6 шляп — 19 разных 3D-картинок ' + JSON.stringify(shop));
+  ok(shop.n === 21 && shop.ok && shop.uniq === 21, 'магазин: 14 питомцев и 7 шляп — 21 разная 3D-картинка ' + JSON.stringify(shop));
 
   /* 2. каждый питомец с каждой шляпой строится без ошибок, позы различаются */
   const all = await p.evaluate(async () => { const A = window.Avatar, host = document.createElement('div'); document.body.appendChild(host); const keys = new Set(); let n = 0;
@@ -25,7 +25,7 @@ let fails = 0; const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); 
     A.hydrate(host); const imgs = [...host.querySelectorAll('.avimg')]; imgs.forEach(i => keys.add(i.src));
     const poses = []; for (const pose of ['happy', 'sad']) { const d = document.createElement('div'); d.className = 'avatar'; d.dataset.av = '🐱'; d.dataset.pose = pose; d.style.cssText = 'width:64px;height:64px'; host.appendChild(d); poses.push(d); } A.hydrate(host);
     return { n, imgs: imgs.length, uniq: keys.size, pets: A.PETS.length, hats: A.HATS.length, poseDiff: poses[0].querySelector('.avimg').src !== poses[1].querySelector('.avimg').src }; });
-  ok(all.pets === 13 && all.hats === 6 && all.imgs === all.n && all.uniq === all.n, `все ${all.pets} питомцев × (без шляпы + ${all.hats} шляп) = ${all.n} разных картинок`);
+  ok(all.pets === 14 && all.hats === 7 && all.imgs === all.n && all.uniq === all.n, `все ${all.pets} питомцев × (без шляпы + ${all.hats} шляп) = ${all.n} разных картинок`);
   ok(all.poseDiff, 'позы happy и sad выглядят по-разному');
 
   /* 3. реакция: после правильного ответа живой персонаж переходит в happy и возвращается в idle */

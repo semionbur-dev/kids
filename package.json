@@ -4,7 +4,7 @@
   "description": "Умники — математика, логика, внимание, память и шахматы для детей",
   "scripts": {
     "test": "node tests/skills.test.js && node tests/chess_engine.test.js && node tests/chess_data.test.js && node tests/gens.test.js && node tests/glossary.test.js && node tests/speech.test.js",
-    "test:e2e": "node tests/e2e.js && node tests/profiles.js && node tests/privacy.js && node tests/avatars.js && node tests/speech.js",
+    "test:e2e": "node tests/e2e.js && node tests/profiles.js && node tests/privacy.js && node tests/avatars.js && node tests/speech.js && node tests/referral.js",
     "gen:chess": "node tools/gen_chess.js > chess_data.js"
   }
 }
