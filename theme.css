@@ -172,3 +172,11 @@ h1,h2,h3,.h1,.rt,.nm,.result h1{font-family:var(--disp);font-weight:700;letter-s
 .onb h1{font-size:26px}
 .chip2{min-width:44px}
 .skrow .num small,.rp-card small{font-size:12px}
+
+/* переход между экранами и вопросами */
+.enter{animation:enter .26s cubic-bezier(.2,.8,.2,1) both}
+@keyframes enter{from{opacity:0;transform:translateY(16px) scale(.985)}to{opacity:1;transform:none}}
+/* персонаж в шапке урока: живой, реагирует на ответы */
+.lhead{align-items:center}
+.lhead .mascot.lh{width:64px;height:64px;margin:-10px -6px -10px 0;background:radial-gradient(circle at 50% 62%,#fff8d6 0 52%,transparent 53%)}
+.lhead .hp{min-width:0;font-family:var(--disp);font-size:13px;color:var(--ink)}

@@ -33,6 +33,15 @@ let fails = 0; const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); 
   const pose = await p.evaluate(async () => { const el = document.querySelector('.hero .avatar'); const a = el.__avatar; const before = a.pose; window.Avatar.react('happy'); const during = a.pose; await new Promise(r => setTimeout(r, 2800)); return [before, during, a.pose]; });
   ok(pose[0] === 'wave' && pose[1] === 'happy', 'реакция «happy» включается на живом персонаже');
   ok(pose[2] === 'idle', 'после реакции персонаж возвращается в покой ' + pose);
+  /* 3б. в уроке персонаж в шапке живой, переживает перерисовки и реагирует на правильный и неверный ответ */
+  await p.evaluate(() => window.__umniki.A.skill({ dataset: { s: 'numbers' } })); await p.waitForSelector('.lhead canvas.av3d', { timeout: 15000 });
+  const lesson = await p.evaluate(async () => { const u = window.__umniki, cv = document.querySelector('.lhead canvas.av3d'), sleep = ms => new Promise(r => setTimeout(r, ms)), out = {};
+    const q = () => u.L().queue[0], right = () => { const x = q(); u.A.pick({ dataset: { i: x.choices.findIndex(c => c.v === x.answer) } }); u.A.check(); }, wrong = () => { const x = q(); u.A.pick({ dataset: { i: (x.choices.findIndex(c => c.v === x.answer) + 1) % x.choices.length } }); u.A.check(); };
+    right(); await sleep(150); const p1 = document.querySelector('.lhead .avatar').__avatar; out.same1 = document.querySelector('.lhead canvas.av3d') === cv; out.happy = p1.pose; u.A.next(); await sleep(200);
+    out.enter = !!document.querySelector('.qwrap.enter, .lesson.enter'); const x = q(); if (x.type === 'choice') { wrong(); await sleep(150); out.sad = document.querySelector('.lhead .avatar').__avatar.pose; out.same2 = document.querySelector('.lhead canvas.av3d') === cv; } else out.sad = 'skip'; return out; });
+  ok(lesson.same1 && lesson.same2 !== false, 'в уроке холст персонажа переносится при перерисовке, а не создаётся заново ' + JSON.stringify(lesson));
+  ok(lesson.happy === 'happy' && (lesson.sad === 'sad' || lesson.sad === 'skip'), 'правильный ответ — персонаж радуется, неверный — грустит');
+  ok(lesson.enter, 'новый вопрос выезжает с анимацией');
   ok(p.errs.length === 0, 'нет ошибок в консоли ' + p.errs.join('|'));
   await p.context().close();
 

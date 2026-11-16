@@ -126,7 +126,7 @@ function setPose(p, pose, now) { p.pose = pose; p.poseAt = now; }
 function animate(p, t) {
   const g = p.g, body = p.body, dt = t - p.poseAt, idle = Math.sin((t + p.t0) * 2.2);
   let y = idle * .04, rz = Math.sin((t + p.t0) * 1.1) * .035, rx = 0, ry = 0, sy = 1 + idle * .012, mouthFlip = false, squint = 0, armUp = 0;
-  if (p.pose === 'happy') { const k = Math.max(0, 1 - dt / 2.4); y += Math.abs(Math.sin(dt * 9)) * .55 * k; ry = dt < .9 ? dt / .9 * Math.PI * 2 : 0; squint = .6 * k; armUp = 1.2 * k; if (dt > 2.4) { p.pose = 'idle'; } }
+  if (p.pose === 'happy') { const k = Math.max(0, 1 - dt / 2.4); y += Math.abs(Math.sin(dt * 9)) * .32 * k; ry = dt < .9 ? dt / .9 * Math.PI * 2 : 0; squint = .6 * k; armUp = 1.2 * k; if (dt > 2.4) { p.pose = 'idle'; } }
   else if (p.pose === 'sad') { const k = Math.min(1, dt / .3) * (dt < 2.4 ? 1 : Math.max(0, 1 - (dt - 2.4) / .5)); rx = .22 * k; sy -= .07 * k; mouthFlip = k > .3; y -= .04 * k; if (dt > 2.9) p.pose = 'idle'; }
   else if (p.pose === 'wave') { armUp = 1.0; rz += Math.sin(dt * 9) * .08; if (dt > 2.2) p.pose = 'idle'; }
   g.position.y = y; g.rotation.set(rx, ry, rz); body.scale.set(1 / Math.sqrt(sy), sy, 1 / Math.sqrt(sy));
@@ -160,22 +160,31 @@ function snapshot(pet, hat, size, pose) {
 }
 function disposeScene(s) { s.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); }); }
 
-function stopLive() { if (live.raf) cancelAnimationFrame(live.raf); live.raf = 0; if (live.cur) { live.cur.scene && disposeScene(live.cur.scene); live.cur = null; } }
+function stopLive() { if (live.raf > 0) cancelAnimationFrame(live.raf); live.raf = 0; if (live.cur) { live.cur.scene && disposeScene(live.cur.scene); live.cur = null; } }
 function startLive(el, pet, hat, pose) {
-  stopLive(); if (!liveR) liveR = mkRenderer(false);
+  if (!liveR) liveR = mkRenderer(false);
+  const cur = live.cur;
+  if (cur && cur.pet === pet && cur.hat === hat && live.raf) {   // тот же персонаж на новом экране: переносим холст, не теряя позу
+    cur.el = el; cur.lost = 0; el.querySelectorAll('.av3d,.avimg').forEach(n => n.remove()); el.appendChild(liveR.domElement); el.classList.add('on3d'); el.__avatar = cur.p; el.__t0 = cur.start;
+    const size = Math.max(40, Math.round(el.clientWidth || 120)); if (cur.size !== size) { cur.size = size; liveR.setSize(size, size, false); }
+    if (pose) setPose(cur.p, pose, (performance.now() - cur.start) / 1000); return;
+  }
+  stopLive();
   const size = Math.max(40, Math.round(el.clientWidth || 120)), dpr = Math.min(2, root.devicePixelRatio || 1);
   liveR.setPixelRatio(dpr); liveR.setSize(size, size, false); const cv = liveR.domElement; cv.className = 'av3d'; cv.style.width = '100%'; cv.style.height = '100%';
   el.querySelectorAll('.av3d,.avimg').forEach(n => n.remove()); el.appendChild(cv); el.classList.add('on3d');
-  const { s, cam } = scene(), p = build(pet, hat); s.add(p.g); setPose(p, pose || 'idle', 0); const start = performance.now(), still = reduce(); live.cur = { scene: s, p, el };
-  let last = 0; const loop = now => {
-    if (!el.isConnected || !live.cur || live.cur.p !== p) { if (live.cur && live.cur.p === p) stopLive(); return; }
-    live.raf = requestAnimationFrame(loop); if (document.hidden || now - last < 30) return; last = now;
+  const { s, cam } = scene(), p = build(pet, hat); s.add(p.g); setPose(p, pose || 'idle', 0); const start = performance.now(), still = reduce(); live.cur = { scene: s, p, el, pet, hat, start, size };
+  let last = 0; const me = live.cur; const loop = now => {
+    if (live.cur !== me) return;
+    live.raf = requestAnimationFrame(loop);
+    if (!me.el.isConnected) { if (!me.lost) me.lost = now; if (now - me.lost > 800) stopLive(); return; }   // экран перерисовали: ждём, пока холст перенесут на новый
+    me.lost = 0; if (document.hidden || now - last < 30) return; last = now;
     const t = (now - start) / 1000; animate(p, still ? 0 : t); liveR.render(s, cam);
   };
-  if (still) { animate(p, 0); liveR.render(s, cam); live.cur.p = p; } else live.raf = requestAnimationFrame(loop);
+  if (still) { animate(p, 0); liveR.render(s, cam); live.raf = -1; } else live.raf = requestAnimationFrame(loop);
   el.__avatar = p; el.__t0 = start;
 }
-const react = pose => { const c = live.cur; if (c && c.el.isConnected) setPose(c.p, pose, (performance.now() - c.el.__t0) / 1000); };
+const react = pose => { const c = live.cur; if (c) setPose(c.p, pose, (performance.now() - c.start) / 1000); };
 
 function hydrate(rootEl) {
   if (!failed && navigator.webdriver && !localStorage.getItem('umniki.av3d')) failed = true;

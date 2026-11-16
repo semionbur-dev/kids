@@ -217,6 +217,9 @@ function topBar() {
 const tabs = on => `<nav class="tabs">${[['home', '🏠', tt('Учёба', 'Навучанне', `Učení`, `Learn`)], ['shop', '🎁', tt('Магазин', 'Крама', `Obchod`, `Shop`)], ['awards', '🏆', tt('Награды', 'Узнагароды', `Odměny`, `Awards`)]]
   .map(([id, ic, n]) => `<button class="tab${on === id ? ' on' : ''}" data-a="goto" data-t="${id}"><span>${ic}</span>${n}</button>`).join('')}</nav>`;
 
+/* вход нового экрана / нового вопроса: короткий выезд снизу (при «уменьшить движение» CSS отключает анимацию) */
+const enter = el => { if (!el) return; el.classList.remove('enter'); void el.offsetWidth; el.classList.add('enter'); };
+let prevR = null;
 function render() {
   if (!S.name) R = 'onboard';
   if (!['parent', 'report', 'kid', 'gloss', 'privacy'].includes(R)) parentOK = false;
@@ -225,6 +228,7 @@ function render() {
   if (R === 'profile' || R === 'onboard') prefetchFb();
   ({ onboard: rOnboard, home: rHome, shop: rShop, awards: rAwards, profile: rProfile, report: rReport, chess: rChess, pin: rPin, parent: rParent, who: rWho, kid: rKid, gloss: rGloss, privacy: rPrivacy, timeup: rTimeup, lesson: rLesson, result: rResult })[R]();
   window.scrollTo(0, 0); renderBanner();
+  if (R !== prevR) enter(root.querySelector('.page,.lesson,.result,.onb,.pinpage')); prevR = R;
 }
 
 /* ---------- онбординг ---------- */
@@ -633,7 +637,7 @@ const qHTML = (q, v) => `${qTag(q)}${langChip(q)}<div class="qtext">${glossify(v
 function lHead() {
   const prog = Math.round(L.resolved / (L.total + L.added) * 100), r = S.route;
   const right = L.route && r ? `${Math.min(r.done.length + 1, r.skills.length)}/${r.skills.length}` : SK[L.skill].icon;
-  return `<div class="lhead"><button class="x" data-a="quit">✕</button><div class="bar"><i style="width:${prog}%"></i></div><div class="hp">${right}</div></div>`;
+  return `<div class="lhead"><button class="x" data-a="quit">✕</button><div class="bar"><i style="width:${prog}%"></i></div><div class="hp">${right}</div>${mascot('lh', false, S, { live: 1 })}</div>`;
 }
 /* экран «запомни»: показываем материал на несколько секунд, потом прячем (память) */
 function rStudy(q) {
@@ -726,6 +730,7 @@ function check() {
     else L.resolved++;   // повторный промах — засчитываем как пройденный, чтобы не зациклиться
   }
   save(); rLesson();
+  if (window.Avatar) Avatar.react(ok ? 'happy' : 'sad');
   if (!ok) { const el = $('.fb') || root; el.classList.add('shake'); }
 }
 function next() {
@@ -733,7 +738,7 @@ function next() {
   L.queue.shift(); L.answered = false; L.sel = null; L.input = ''; L.hint = false; L.studied = false; L.alt = false;
   if (!L.queue.length) return finish();
   if (limitHit()) return endByLimit();
-  rLesson();
+  rLesson(); enter($('.qwrap') || $('.lesson'));
 }
 
 /* ---------- завершение занятия ---------- */
