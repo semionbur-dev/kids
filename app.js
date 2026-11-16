@@ -392,7 +392,7 @@ function rLesson() {
   if (q.study && !L.studied && !L.answered) return rStudy(q);
   let ans = '';
   if (q.type === 'choice') {
-    const cls = q.wide || q.choices.length === 3 && q.choices.every(c => plain(c.h).length <= 2) ? 'c3' : (q.choices.some(c => plain(c.h).length > 22) ? 'c1' : '');
+    const cls = q.cols === 1 ? 'c1' : q.wide || q.choices.length === 3 && q.choices.every(c => plain(c.h).length <= 2) ? 'c3' : (q.choices.some(c => plain(c.h).length > 22) ? 'c1' : '');
     ans = `<div class="opts ${cls}">` + q.choices.map((c, i) => {
       let st = ''; if (L.answered) { if (c.v === q.answer) st = ' ok'; else if (L.sel === i) st = ' no'; } else if (L.sel === i) st = ' sel';
       const k = q.big ? ' emo' : (plain(c.h).length > 12 && !/</.test(c.h) ? ' txt' : '');
@@ -669,5 +669,5 @@ up.setAttribute('aria-label', tt('Наверх', 'Угару', `Nahoru`, `Up`));
 up.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
 window.addEventListener('scroll', () => { up.hidden = !(window.scrollY > 400 && ['home', 'shop', 'awards'].includes(R)); }, { passive: true });
 if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(() => {});
-window.__umniki = { GENS, S: () => S, L: () => L, A, buildSet, skillPool, sigOf, mergeStates, defState, clone, SK, availSkills };
+window.__umniki = { GENS, S: () => S, L: () => L, A, buildSet, skillPool, sigOf, mergeStates, defState, clone, SK, availSkills, render, setR: v => { R = v; } };
 })();

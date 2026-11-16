@@ -824,5 +824,5 @@ gen('arith', 'time', 1, d => {
     explain: t(`От ${fmtT(t1)} до ${fmtT(t2)} — ${dm} мин.`, `Ад ${fmtT(t1)} да ${fmtT(t2)} — ${dm} хв.`, `Od ${fmtT(t1)} do ${fmtT(t2)} je ${dm} min.`, `From ${fmtT(t1)} to ${fmtT(t2)} is ${dm} min.`) }, numOpts(dm));
 });
 
-window.Gens = { GENS, LANGS, rnd, pick, shuffle, esc, t, setLang: l => { LANG = LANGS.includes(l) ? l : 'ru'; }, getLang: () => LANG };
+window.Gens = { GENS, LANGS, gen, mkChoice, mkNum, numOpts, txtOpts, byD, BL, rnd, pick, shuffle, esc, t, setLang: l => { LANG = LANGS.includes(l) ? l : 'ru'; }, getLang: () => LANG };
 })();

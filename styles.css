@@ -255,3 +255,20 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;paddin
 .skrow .ico{font-size:26px}.skrow .nm{flex:1}.skrow .nm b{font-size:15px;color:var(--c)}.skrow .num{text-align:right;font-size:13px;line-height:1.3}.skrow .num small{color:var(--mut)}
 .tip{background:#fff7d6;border:2px solid #ffe08a;border-radius:16px;padding:12px 14px;font-size:15px;line-height:1.4}
 @media print{.top,.tabs,.back,#totop,.row2,.sect:empty{display:none!important}body{background:#fff}.page{padding-bottom:10px}}
+
+/* игры на внимание, память, пространство */
+.erow{display:flex;justify-content:center;gap:6px;font-size:32px;line-height:1.2}
+.erow span{width:40px;text-align:center}
+.erow.idx{font-size:13px;color:var(--mut);margin-top:-2px}
+.erow.arrows{margin-top:12px;font-size:30px;color:var(--pri)}.erow.arrows span{width:34px}
+.emogrid{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;max-width:340px;line-height:1.1}
+.mgrid{display:grid;grid-template-columns:repeat(var(--w),64px);gap:4px}
+.mgrid div{width:64px;height:64px;display:grid;place-items:center;font-size:36px;background:#fff;border:2px solid var(--line);border-radius:12px}
+.mgrid div.t{background:#ffe9a8;border-color:#e0a800;color:#a37a00}
+.bignum{font-size:64px;letter-spacing:6px;font-weight:800;color:var(--pri)}
+.pairs{display:flex;flex-direction:column;gap:8px;font-size:38px}.pairs i{font-style:normal;color:var(--mut);padding:0 6px}
+.rg{display:grid;grid-template-columns:repeat(var(--n),42px);gap:2px;justify-content:center}
+.rg div{height:42px;display:grid;place-items:center;font-size:26px;background:#fff;border:1px solid #cfd0e0}.rg .hd{background:none;border:0;font-size:14px;color:var(--mut)}
+.mini{display:inline-grid;grid-template-columns:repeat(var(--n),22px);gap:2px}.mini i{width:22px;height:22px;background:#fff;border:1px solid #cfd0e0;border-radius:4px}.mini i.on{background:var(--pri);border-color:var(--pri-d)}
+.mirrorv{display:flex;align-items:center;gap:10px}.mirrorv b{font-size:40px;border-left:4px solid #8d8fa8;padding-left:10px}
+.rowopt{display:inline-flex;gap:6px;font-size:28px}
