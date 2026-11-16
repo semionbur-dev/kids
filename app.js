@@ -49,7 +49,7 @@ const ACH = [
 const KEY = 'umniki.v1';
 const defState = () => ({ name: '', pet: '', pets: [], hat: '', hats: [], coins: 0, xp: 0, streak: 0, bestStreak: 0, lastDay: '',
   hearts: 5, heartAt: Date.now(), done: { arith: [], frac: [], logic: [], geom: [] }, ach: {},
-  stat: { lessons: 0, correct: 0, perfect: 0, bestCombo: 0 }, todayDate: '', todayXp: 0, goalPaid: '', sound: true });
+  stat: { lessons: 0, correct: 0, perfect: 0, bestCombo: 0 }, todayDate: '', todayXp: 0, goalPaid: '', sound: true, recent: [] });
 let S;
 function load() {
   let raw = null; try { raw = JSON.parse(localStorage.getItem(KEY)); } catch (e) {}
@@ -119,25 +119,45 @@ const closeModal = () => { const m = $('#modal'); m.innerHTML = ''; m._btns = nu
 
 /* ======================== Построение уроков ======================== */
 function makeQ(g, d) { const q = g.make(d); q.topic = g.topic; q.gid = g.id; q.d = d; return q; }
-function buildSet(pool, d, mixed) {
+const sigOf = q => q.gid + '|' + (q.key || q.text + (q.visual || ''));
+/* Новая задача из генератора g, которой ещё не было в этом уроке и (по возможности) в недавней истории.
+   Если свежей не нашлось — возвращает ту, что видели давнее всего. */
+function freshQ(g, d, seen) {
+  const recent = S.recent || []; let best = null;
+  for (let t = 0; t < 25; t++) {
+    const q = makeQ(g, d), s = sigOf(q);
+    if (seen.has(s)) continue;
+    const age = recent.lastIndexOf(s);          // -1 = не встречалась; меньше индекс = давнее
+    if (age < 0) return { q, fresh: true };
+    if (!best || age < best.age) best = { q, age, fresh: false };
+  }
+  return best;
+}
+function buildSet(pool, d) {
   const out = [], seen = new Set(); let bag = [], last = null;
   for (let i = 0; i < QPL; i++) {
-    let g;
-    if (mixed) { g = pick(pool.filter(x => x !== last)); }
-    else { if (!bag.length) bag = shuffle(pool); let k = bag.findIndex(x => x !== last); if (k < 0) k = 0; g = bag.splice(k, 1)[0]; }
-    last = g;
-    const dq = Math.max((i < 2 && d > 1) ? d - 1 : d, g.minD);
-    let q, tries = 0;
-    do { q = makeQ(g, dq); tries++; } while (seen.has(q.text + (q.visual || '')) && tries < 15);
-    seen.add(q.text + (q.visual || '')); out.push(q);
+    if (!bag.length) bag = shuffle(pool);
+    let k = bag.findIndex(x => x !== last); if (k < 0) k = 0;
+    const primary = bag.splice(k, 1)[0];
+    // сначала пробуем «очередной» тип задач, затем остальные — пока не найдётся свежий вопрос
+    const cands = [primary, ...shuffle(pool.filter(x => x !== primary && x !== last))];
+    let chosen = null, stale = null;
+    for (const g of cands) {
+      const r = freshQ(g, Math.max((i < 2 && d > 1) ? d - 1 : d, g.minD), seen);
+      if (!r) continue;
+      if (r.fresh) { chosen = r.q; break; }
+      if (!stale || r.age < stale.age) stale = r;
+    }
+    const q = chosen || (stale ? stale.q : makeQ(primary, d));
+    last = GENS.find(x => x.id === q.gid); seen.add(sigOf(q)); out.push(q);
   }
   return out;
 }
 const lessonD = idx => Math.min(5, 1 + Math.floor(idx / 2));
-const buildLesson = (topic, idx) => buildSet(GENS.filter(g => g.topic === topic && g.minD <= lessonD(idx)), lessonD(idx), false);
+const buildLesson = (topic, idx) => buildSet(GENS.filter(g => g.topic === topic && g.minD <= lessonD(idx)), lessonD(idx));
 function buildMixed() {
   const n = TOPICS.reduce((a, t) => a + doneCount(S, t.id), 0), d = Math.min(5, 1 + Math.floor(n / 6));
-  return buildSet(GENS.filter(g => g.minD <= d), d, true);
+  return buildSet(GENS.filter(g => g.minD <= d), d);
 }
 
 /* ======================== Маршрутизация и отрисовка ======================== */
@@ -289,12 +309,13 @@ function check() {
   let ok;
   if (q.type === 'choice') ok = q.choices[L.sel].v === q.answer; else ok = parseInt(L.input, 10) === q.answer;
   L.answered = true; L.ok = ok;
+  (S.recent = S.recent || []).push(sigOf(q)); if (S.recent.length > 150) S.recent.shift();
   if (ok) {
     if (!q.retry) L.firstOK++;
     L.combo++; L.bestCombo = Math.max(L.bestCombo, L.combo); L.resolved++; S.stat.correct++; sfx.ok();
   } else {
     L.combo = 0; if (!q.retry) { L.mistakes++; } if (!L.practice) loseHeart(); sfx.no();
-    if (!q.retry) { const g = GENS.find(x => x.id === q.gid), nq = makeQ(g, q.d); nq.retry = true; L.queue.push(nq); L.added++; }
+    if (!q.retry) { const g = GENS.find(x => x.id === q.gid), nq = (freshQ(g, q.d, new Set([sigOf(q)])) || { q: makeQ(g, q.d) }).q; nq.retry = true; L.queue.push(nq); L.added++; }
     else L.resolved++;   // второй промах по той же теме — засчитываем как пройденный, чтобы не зациклиться
   }
   save(); rLesson();
@@ -427,5 +448,5 @@ setInterval(() => {
 /* ======================== Запуск ======================== */
 load(); render();
 if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(() => {});
-window.__umniki = { GENS, S: () => S, L: () => L, A };
+window.__umniki = { GENS, S: () => S, L: () => L, A, buildLesson, sigOf };
 })();
