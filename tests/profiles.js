@@ -44,13 +44,23 @@ const U = (p, f, a) => p.evaluate(f, a);
   await U(p, () => { const u = window.__umniki; u.FAM().kids.pop(); u.useKid('k1'); u.save(); });
   /* «перезапуск»: заново читаем сохранённое (настоящая перезагрузка страницы в headless-Chromium иногда сбрасывает localStorage — это артефакт браузера в тестах) */
   await U(p, () => { window.__umniki.load(); if (window.__umniki.FAM().kids.length > 1) window.__umniki.A.switchkid(); });
-  ok(await U(p, () => document.querySelectorAll('.whoc').length === 2), 'после перезапуска с двумя детьми — экран «Кто занимается?» ' + await U(p, () => document.querySelectorAll('.whoc').length + ' ' + window.__umniki.FAM().kids.map(k => k.id) + ' ' + document.body.innerText.slice(0, 60).replace(/\n/g, '/')));
+  ok(await U(p, () => document.querySelectorAll('.whoc:not(.add)').length === 2), 'после перезапуска с двумя детьми — экран «Кто занимается?» ' + await U(p, () => document.querySelectorAll('.whoc').length + ' ' + window.__umniki.FAM().kids.map(k => k.id) + ' ' + document.body.innerText.slice(0, 60).replace(/\n/g, '/')));
   await p.tap('.whoc:nth-child(2)'); st = await U(p, () => { const S = window.__umniki.S(); return { n: S.name, hero: !!document.querySelector('.hero'), pin: S.parent.pin }; });
   ok(st.n === 'Миша' && st.hero && st.pin === 'x', 'тап по картинке открывает профиль Миши; PIN общий');
   await p.evaluate(() => { const S = window.__umniki.S(); S.xp = 50; S.coins = 9; window.__umniki.save(); });
   await p.evaluate(() => window.__umniki.A.profile()); ok(await U(p, () => !!document.querySelector('[data-a=switchkid]')), 'в профиле есть «Сменить профиль»');
   await p.tap('[data-a=switchkid]'); await p.tap('.whoc:nth-child(1)');
   st = await U(p, () => { const u = window.__umniki; return { a: u.S().name, axp: u.S().xp, m: u.FAM().kids[1].xp }; }); ok(st.a === 'Маша' && st.axp === 120 && st.m === 50, 'прогресс детей раздельный');
+
+  /* 4б. экран выбора: лимит, маршрут, кнопка для родителей, возврат с главной */
+  await U(p, () => { const u = window.__umniki, K = window.Skills, kids = u.FAM().kids; u.FAM().parent.limit = 20; K.addHist(kids[1].hist, K.dayStr(new Date()), { sec: 480, ses: 1 }); u.useKid('k1'); u.A.switchkid(); });
+  st = await U(p, () => ({ txt: [...document.querySelectorAll('.whoc:not(.add)')].map(c => c.innerText.replace(/\n/g, ' | ')), line: (document.querySelector('.limline') || {}).innerText, add: !!document.querySelector('.whoc.add'), par: !!document.querySelector('.parentbtn') }));
+  ok(/20/.test(st.line) && /20 мин/.test(st.txt[0]) && /12 мин/.test(st.txt[1]) && /маршрут 0\/4/.test(st.txt[0]), 'экран выбора: лимит, сколько осталось у каждого и маршрут дня ' + JSON.stringify(st.txt));
+  ok(st.add && st.par, 'есть кнопка «Для родителей» и карточка «Добавить»');
+  await p.tap('.parentbtn'); ok(await U(p, () => !!document.querySelector('.pinpage')), '«Для родителей» открывает ввод PIN');
+  await p.tap('[data-a=pinback]'); ok(await U(p, () => !!document.querySelector('.who')), 'назад из PIN — снова выбор профиля');
+  await p.tap('.whoc:nth-child(1)'); await p.tap('.top [data-a=whoami]'); ok(await U(p, () => !!document.querySelector('.who')), 'на главной кружок с персонажем возвращает к выбору профиля');
+  await U(p, () => { const u = window.__umniki; u.FAM().parent.limit = 0; u.A.who({ dataset: { id: 'k1' } }); });
 
   /* 5. правка и удаление */
   await U(p, () => { const u = window.__umniki; u.unlockParent(); u.setR('parent'); u.render(); });

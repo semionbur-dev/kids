@@ -180,3 +180,20 @@ h1,h2,h3,.h1,.rt,.nm,.result h1{font-family:var(--disp);font-weight:700;letter-s
 .lhead{align-items:center}
 .lhead .mascot.lh{width:64px;height:64px;margin:-10px -6px -10px 0;background:radial-gradient(circle at 50% 62%,#fff8d6 0 52%,transparent 53%)}
 .lhead .hp{min-width:0;font-family:var(--disp);font-size:13px;color:var(--ink)}
+
+/* верхняя панель: кружок с персонажем, замочек для родителей */
+.top{align-items:center}
+.who-btn{width:46px;height:46px;border-radius:50%;border:var(--edge);background:#fff8d6;box-shadow:var(--lift-s);display:grid;place-items:center;flex:none;padding:0;overflow:hidden;font-size:20px}
+.who-btn .mascot{width:42px;height:42px;margin:0;background:none}
+.who-btn.lock{background:#fff}
+.top{gap:6px}
+/* экран «Кто занимается?» */
+.whopage{gap:10px}
+.whotop{display:flex;justify-content:space-between;align-items:center;min-height:48px}
+.parentbtn{width:auto}
+.whopage h1{margin:4px 0 0}
+.limline{margin:0}
+.whoc small{font-family:"Nunito";font-weight:800;font-size:13px;color:var(--mut);line-height:1.25}
+.whoc{gap:6px;padding:16px 8px 14px}
+.whoc.add{background:transparent;border-style:dashed;box-shadow:none;color:var(--mut)}
+.whoc .plus{font-family:var(--disp);font-size:44px;line-height:96px;width:96px;height:96px;border-radius:50%;border:var(--edge);background:#fff;color:var(--ink)}

@@ -208,10 +208,13 @@ const mascot = (cls = '', bounce = false, k = S, o = {}) => `<div class="mascot 
 const petBtn = e => `<span class="avatar" data-av="${e}"><span class="pet">${e}</span></span>`;
 
 function topBar() {
+  const multi = FAM.kids.length > 1;
   return `<div class="top">
+    <button class="who-btn" data-a="whoami" aria-label="${multi ? tt('Сменить профиль', 'Змяніць профіль', `Změnit profil`, `Switch profile`) : tt('Профиль', 'Профіль', `Profil`, `Profile`)}">${mascot('sm', false, S)}</button>
     <button class="pill fire" data-a="weekinfo">🔥 <b>${weekCount()}</b><small>/7</small></button>
     <button class="pill lv" data-a="goto" data-t="awards">⭐ <b>${lvl(S.xp)}</b></button>
     <button class="pill coin" data-a="goto" data-t="shop">🪙 <b id="coins">${S.coins}</b></button>
+    ${multi ? '' : `<button class="who-btn lock" data-a="parentlock" data-back="home" aria-label="${tt('Родительская зона', 'Бацькоўская зона', `Rodičovská zóna`, `Parents’ zone`)}">🔒</button>`}
   </div>`;
 }
 const tabs = on => `<nav class="tabs">${[['home', '🏠', tt('Учёба', 'Навучанне', `Učení`, `Learn`)], ['shop', '🎁', tt('Магазин', 'Крама', `Obchod`, `Shop`)], ['awards', '🏆', tt('Награды', 'Узнагароды', `Odměny`, `Awards`)]]
@@ -309,8 +312,18 @@ function renderBanner() {
 
 /* ---------- кто занимается: вход по картинке (F3) ---------- */
 function rWho() {
-  root.innerHTML = `<div class="onb"><div style="font-size:56px">👋</div><h1>${tt('Кто занимается?', 'Хто займаецца?', `Kdo cvičí?`, `Who is playing?`)}</h1>
-    <div class="who">${FAM.kids.map((k, i) => `<button class="whoc c${i % 3}" data-a="who" data-id="${k.id}">${mascot('', false, k)}<b>${esc(k.name)}</b></button>`).join('')}</div></div>`;
+  const lim = FAM.parent.limit, t0 = today();
+  const card = (k, i) => {
+    const left = Skills.limitLeft(FAM.parent, k.hist, t0, 0), done = k.route && k.route.date === t0 ? k.route.done.length : 0, tot = k.route && k.route.date === t0 ? k.route.skills.length : Skills.ROUTE_LEN, fin = k.route && k.route.date === t0 && k.route.finished;
+    const time = !isFinite(left) ? '' : left <= 0 ? `🌙 ${tt('на сегодня всё', 'на сёння ўсё', `pro dnešek hotovo`, `done for today`)}` : `⏳ ${tt(`ещё ${Math.ceil(left / 60)} мин`, `яшчэ ${Math.ceil(left / 60)} хв`, `ještě ${Math.ceil(left / 60)} min`, `${Math.ceil(left / 60)} min left`)}`;
+    const route = fin ? `✅ ${tt('маршрут пройден', 'маршрут пройдзены', `trasa hotová`, `route done`)}` : `🧭 ${tt('маршрут', 'маршрут', `trasa`, `route`)} ${done}/${tot}`;
+    return `<button class="whoc c${i % 3}" data-a="who" data-id="${k.id}">${mascot('', false, k)}<b>${esc(k.name)}</b><small>${route}</small>${time ? `<small>${time}</small>` : ''}</button>`;
+  };
+  root.innerHTML = `<div class="onb whopage"><div class="whotop"><span class="rs">${cloudState === 'ok' ? '☁️ ' + tt('сохранено', 'захавана', `uloženo`, `saved`) : ''}</span>
+      <button class="btn sm ghost parentbtn" data-a="parentzone" data-back="who">🔒 ${tt('Для родителей', 'Для бацькоў', `Pro rodiče`, `For parents`)}</button></div>
+    <h1>${tt('Кто занимается?', 'Хто займаецца?', `Kdo cvičí?`, `Who is playing?`)}</h1>
+    ${lim ? `<div class="rs limline">⏳ ${tt(`Лимит на сегодня: ${lim} мин для каждого`, `Ліміт на сёння: ${lim} хв для кожнага`, `Limit na dnes: ${lim} min pro každého`, `Today's limit: ${lim} min each`)}</div>` : ''}
+    <div class="who">${FAM.kids.map(card).join('')}${FAM.kids.length < MAX_KIDS ? `<button class="whoc add" data-a="parentadd" data-back="who"><span class="plus">+</span><b>${tt('Добавить', 'Дадаць', `Přidat`, `Add`)}</b><small>${tt('через PIN родителя', 'праз PIN бацькоў', `přes PIN rodiče`, `with the parent PIN`)}</small></button>` : ''}</div></div>`;
 }
 
 /* ---------- родитель: добавить / изменить ребёнка (F2) ---------- */
@@ -1072,7 +1085,10 @@ const A = {
       btns: [{ t: tt('Понятно', 'Зразумела', `Jasné`, `Got it`), c: 'ghost', f: () => {} }] });
   },
   print() { window.print(); },
-  parentzone() { sfx.tap(); PN = { mode: Skills.hasPin(S.parent) ? 'enter' : 'set', buf: '', first: '', next: 'parent', back: 'profile', err: '' }; R = 'pin'; render(); },
+  parentzone(el) { sfx.tap(); PN = { mode: Skills.hasPin(S.parent) ? 'enter' : 'set', buf: '', first: '', next: 'parent', back: (el && el.dataset && el.dataset.back) || 'profile', err: '' }; R = 'pin'; render(); },
+  parentlock(el) { A.parentzone(el); },
+  parentadd(el) { A.parentzone(el); },
+  whoami() { sfx.tap(); if (FAM.kids.length > 1) { R = 'who'; } else { R = 'profile'; } render(); },
   timeupparent() { sfx.tap(); PN = { mode: Skills.hasPin(S.parent) ? 'enter' : 'set', buf: '', first: '', next: 'extra', back: 'timeup', err: '' }; R = 'pin'; render(); },
   changepin() { PN = { mode: 'set', buf: '', first: '', next: 'parent', back: 'parent', err: '' }; parentOK = true; R = 'pin'; render(); },
   pinkey(el) { if (PN) pinEnter(el.dataset.k); },
