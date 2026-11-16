@@ -183,8 +183,8 @@ const tabs = on => `<nav class="tabs">${[['home', '🏠', tt('Учёба', 'На
 function render() {
   syncHearts(); touchDay();
   if (!S.name) R = 'onboard';
-  if (R === 'awards' || R === 'onboard') prefetchFb();
-  ({ onboard: rOnboard, home: rHome, shop: rShop, awards: rAwards, lesson: rLesson, result: rResult })[R]();
+  if (R === 'profile' || R === 'onboard') prefetchFb();
+  ({ onboard: rOnboard, home: rHome, shop: rShop, awards: rAwards, profile: rProfile, lesson: rLesson, result: rResult })[R]();
   window.scrollTo(0, 0);
 }
 
@@ -214,8 +214,8 @@ function rHome() {
   const L0 = lvl(S.xp), a = lvlStart(L0), b = lvlStart(L0 + 1), pr = Math.min(100, Math.round((S.xp - a) / (b - a) * 100));
   const gp = Math.min(100, Math.round(S.todayXp / GOAL * 100));
   root.innerHTML = topBar() + `<div class="page">
-    <div class="hero">${mascot()}<div class="bubble">${tt('Привет', 'Прывітанне')}, <b>${esc(S.name)}</b>!<br><span style="font-weight:700;font-size:14px">${phrase}</span>
-      <div class="bar xp xpbar"><i style="width:${pr}%"></i></div><div class="small"><span>${tt('Уровень', 'Узровень')} ${L0}</span><span>${S.xp - a} / ${b - a} XP</span></div></div></div>
+    <div class="hero tap" data-a="profile" role="button">${mascot()}<div class="bubble">${tt('Привет', 'Прывітанне')}, <b>${esc(S.name)}</b>!<br><span style="font-weight:700;font-size:14px">${phrase}</span>
+      <div class="bar xp xpbar"><i style="width:${pr}%"></i></div><div class="small"><span>${tt('Уровень', 'Узровень')} ${L0}</span><span>${S.xp - a} / ${b - a} XP</span></div></div><span class="chev">›</span></div>
     <div class="goal"><div class="row"><span>🎯 ${tt('Цель на сегодня', 'Мэта на сёння')}</span><span>${Math.min(S.todayXp, GOAL)} / ${GOAL} XP ${S.todayXp >= GOAL ? '✅' : ''}</span></div>
       <div class="bar"><i style="width:${gp}%"></i></div></div>
     <button class="btn yel" data-a="mixed">🎲 ${tt('Быстрая тренировка', 'Хуткая трэніроўка')}</button>
@@ -251,17 +251,28 @@ function rShop() {
 function rAwards() {
   const got = ACH.filter(a => S.ach[a.id]).length, L0 = lvl(S.xp);
   root.innerHTML = topBar() + `<div class="page"><div class="h1">${tt('Награды', 'Узнагароды')}</div>
-    <div class="prof">${mascot('')}<div><div class="nm">${esc(S.name)}</div><div class="lv">${tt('Уровень', 'Узровень')} ${L0} · ${S.xp} XP</div></div></div>
+    <div class="prof tap" data-a="profile" role="button">${mascot('')}<div><div class="nm">${esc(S.name)}</div><div class="lv">${tt('Уровень', 'Узровень')} ${L0} · ${S.xp} XP</div></div><span class="chev">›</span></div>
     <div class="stats"><div><b>${totalStars(S)} ⭐</b>${tt('звёзд собрано', 'зорак сабрана')}</div><div><b>${S.stat.correct}</b>${tt('верных ответов', 'правільных адказаў')}</div>
       <div><b>${S.stat.lessons}</b>${tt('уроков пройдено', 'урокаў пройдзена')}</div><div><b>${S.bestStreak} 🔥</b>${tt('лучшая серия', 'лепшая серыя')}</div></div>
     <div class="sect">${tt('Достижения', 'Дасягненні')} · ${got}/${ACH.length}</div>
-    <div class="grid">${ACH.map(a => `<div class="card${S.ach[a.id] ? ' on' : ' lock'}"><div class="em">${a.i}</div><div class="ttl">${P(a.t)}</div><small>${P(a.d)}</small></div>`).join('')}</div>
-    <div class="sect">${tt('Настройки', 'Налады')}</div>
+    <div class="grid">${ACH.map(a => `<div class="card${S.ach[a.id] ? ' on' : ' lock'}"><div class="em">${a.i}</div><div class="ttl">${P(a.t)}</div><small>${P(a.d)}</small></div>`).join('')}</div></div>` + tabs('awards');
+}
+
+/* ---------- профиль ---------- */
+function rProfile() {
+  const L0 = lvl(S.xp), a = lvlStart(L0), b = lvlStart(L0 + 1), pr = Math.min(100, Math.round((S.xp - a) / (b - a) * 100));
+  root.innerHTML = topBar() + `<div class="page">
+    <button class="back" data-a="goto" data-t="home">← ${tt('Назад', 'Назад')}</button>
+    <div class="prof big">${mascot('')}<div class="pinfo"><div class="nm">${esc(S.name)}</div><div class="lv">${tt('Уровень', 'Узровень')} ${L0} · ${S.xp} XP</div>
+      <div class="bar xp"><i style="width:${pr}%"></i></div></div></div>
+    <div class="row2"><button class="btn ghost sm" data-a="goto" data-t="shop">🎁 ${tt('Сменить друга и шляпу', 'Змяніць сябра і галаўны ўбор')}</button></div>
+    <div class="sect">${tt('Аккаунт', 'Акаўнт')}</div>
     ${fbUser ? `<div class="row2"><div class="cloud">☁️ ${esc(fbUser.email || '')}<small>${cloudText()}</small></div><button class="btn ghost sm" data-a="logout" style="width:auto">${tt('Выйти', 'Выйсці')}</button></div>`
       : `<div class="row2"><button class="btn blu sm" data-a="login">🔑 ${tt('Войти через Google и сохранить прогресс', 'Увайсці праз Google і захаваць прагрэс')}</button></div>`}
+    <div class="sect">${tt('Настройки', 'Налады')}</div>
     <div class="row2"><button class="btn ghost sm" data-a="sound">${S.sound ? tt('🔊 Звук включён', '🔊 Гук уключаны') : tt('🔇 Звук выключен', '🔇 Гук выключаны')}</button></div>
     <div class="row2"><button class="btn ghost sm" data-a="lang" data-l="${S.lang === 'be' ? 'ru' : 'be'}">🌐 ${S.lang === 'be' ? 'Мова: Беларуская → Русский' : 'Язык: Русский → Беларуская'}</button></div>
-    <div class="row2"><button class="btn ghost sm" data-a="rename">✏️ ${tt('Сменить имя', 'Змяніць імя')}</button><button class="btn ghost sm" data-a="reset">🗑 ${tt('Начать заново', 'Пачаць зноў')}</button></div></div>` + tabs('awards');
+    <div class="row2"><button class="btn ghost sm" data-a="rename">✏️ ${tt('Сменить имя', 'Змяніць імя')}</button><button class="btn ghost sm" data-a="reset">🗑 ${tt('Начать заново', 'Пачаць зноў')}</button></div></div>` + tabs('');
 }
 
 /* ---------- урок ---------- */
@@ -405,7 +416,7 @@ function fbInit() {
   return fbP;
 }
 const prefetchFb = () => { if (!fbP) fbInit().catch(() => {}); };
-function setCloud(st) { cloudState = st; if (R === 'awards') rAwards(); }
+function setCloud(st) { cloudState = st; if (R === 'profile') rProfile(); }
 
 const clone = o => JSON.parse(JSON.stringify(o));
 const isFresh = s => !s.xp && !(s.stat && s.stat.lessons) && !s.coins;
@@ -480,6 +491,7 @@ function press(k) {
 }
 const A = {
   lang(el) { const v = ($('#nm') || {}).value; if (v !== undefined && !S.name) S.name = v; S.lang = el.dataset.l; setLang(S.lang); document.documentElement.lang = S.lang; document.title = tt('Умники', 'Разумнікі'); phrase = newPhrase(); save(); if (R === 'onboard' || !S.name) { rOnboard(); const i = $('#nm'); if (i) i.value = S.name; } else render(); },
+  profile() { sfx.tap(); R = 'profile'; render(); },
   login() { login(); },
   logout() { logout(); },
   obpet(el) { ob.pet = el.dataset.e; const v = ($('#nm') || {}).value; if (v !== undefined) S.name = v; rOnboard(); const i = $('#nm'); if (i) i.value = S.name; },

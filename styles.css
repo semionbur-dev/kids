@@ -200,3 +200,14 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;paddin
 .embed .result,.embed .onb{padding-top:calc(60px + var(--sat))}
 .cloud{flex:1;background:#fff;border:2px solid var(--line);border-radius:12px;padding:8px 10px;font-size:14px;word-break:break-all}
 .cloud small{display:block;color:var(--mut);font-size:12px;margin-top:2px;word-break:normal}
+
+/* профиль */
+.tap{cursor:pointer;position:relative}
+.tap:active{transform:scale(.985)}
+.chev{align-self:center;font-size:30px;color:var(--mut);margin-left:-4px}
+.back{display:inline-block;padding:8px 12px;margin:4px 0 8px;border-radius:12px;font-size:16px;color:var(--pri);background:#fff;border:2px solid var(--line)}
+.prof.big{padding:18px 14px;margin-bottom:10px}
+.prof.big .mascot{width:96px;height:96px;font-size:56px}
+.prof.big .pinfo{flex:1}
+.prof.big .nm{font-size:26px}
+.prof.big .bar{margin-top:8px}
