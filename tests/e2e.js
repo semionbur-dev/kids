@@ -101,7 +101,7 @@ async function cloud(b) {
   const store = new Map();
   const dev = async () => { const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, locale: 'ru-RU' }); const p = await ctx.newPage(); p.errs = []; p.on('pageerror', e => p.errs.push(e.message));
     await p.exposeFunction('__dbGet', k => store.get(k) || null); await p.exposeFunction('__dbSet', (k, v) => { store.set(k, v); });
-    await p.route('**/firebasejs/**', r => r.fulfill({ contentType: 'application/javascript', body: r.request().url().includes('app-compat') ? MOCK : '/* */' })); await p.goto(URL); return p; };
+    await p.route('**/firebasejs/**', r => r.fulfill({ contentType: 'application/javascript', body: r.request().url().includes('app-compat') ? MOCK : '/* */' })); await p.goto(URL); await p.evaluate(() => { const u = window.__umniki; u.FAM().consent.cloud = '2026-01-01'; u.FAM().consent.seen = '2026-01-01'; u.save({ nopush: true }); u.render(); }); await p.waitForTimeout(300); return p; };
   const A = await dev(); await A.tap('[data-a=obage][data-n="9"]'); await A.fill('#nm', 'Маша'); await A.tap('[data-a=obstart]');
   await A.evaluate(() => { const S = window.__umniki.S(), K = window.Skills, t = K.dayStr(new Date()); S.skills.logic = { lvl: 3, win: [], n: 40, ok: 30 }; S.xp = 200; S.chessLessons = { rook: 3 }; K.addHist(S.hist, t, { sec: 500, ses: 2, skill: 'logic', ok: 7, total: 8 }); S.stat.lessons = 4; window.__umniki.unlockParent(); window.__umniki.setR('parent'); window.__umniki.render(); });
   await A.waitForTimeout(300); await A.tap('[data-a=login]'); await A.waitForTimeout(800);
@@ -171,7 +171,7 @@ async function parentZone(b) {
 async function pinForgot(b) {
   const store = new Map(); const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, locale: 'ru-RU' }); const p = await ctx.newPage(); p.errs = []; p.on('pageerror', e => p.errs.push(e.message));
   await p.exposeFunction('__dbGet', k => store.get(k) || null); await p.exposeFunction('__dbSet', (k, v) => { store.set(k, v); });
-  await p.route('**/firebasejs/**', r => r.fulfill({ contentType: 'application/javascript', body: r.request().url().includes('app-compat') ? MOCK : '/* */' })); await p.goto(URL);
+  await p.route('**/firebasejs/**', r => r.fulfill({ contentType: 'application/javascript', body: r.request().url().includes('app-compat') ? MOCK : '/* */' })); await p.goto(URL); await p.evaluate(() => { const u = window.__umniki; u.FAM().consent.cloud = '2026-01-01'; u.FAM().consent.seen = '2026-01-01'; u.save({ nopush: true }); u.render(); }); await p.waitForTimeout(300);
   await p.tap('[data-a=obage][data-n="9"]'); await p.fill('#nm', 'Маша'); await p.tap('[data-a=obstart]'); await p.tap('.hero'); await p.waitForTimeout(600);
   await p.tap('[data-a=parentzone]'); for (const c of '1234') await p.tap(`[data-a=pinkey][data-k="${c}"]`); for (const c of '1234') await p.tap(`[data-a=pinkey][data-k="${c}"]`); await p.tap('[data-a=lockparent]'); await p.waitForTimeout(300);
   await p.tap('[data-a=parentzone]'); await p.tap('[data-a=pinforgot]'); ok(await p.evaluate(() => /Забыли PIN/.test(document.querySelector('.dlg').innerText)), 'забыли PIN: предлагается сброс через Google');

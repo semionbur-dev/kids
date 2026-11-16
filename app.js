@@ -63,12 +63,12 @@ const ACH = [
 /* ======================== Состояние ======================== */
 const KEY = 'umniki.v1';
 const defState = () => ({ id: '', age: 0, name: '', pet: '', pets: [], hat: '', hats: [], coins: 0, xp: 0, ach: {},
-  stat: { lessons: 0, correct: 0, perfect: 0, bestCombo: 0, routes: 0 }, starsTotal: 0, chessLessons: {}, parent: Skills.newParent(), bil: Skills.newBil(), skills: Skills.newSkills(), hist: {}, route: null,
+  stat: { lessons: 0, correct: 0, perfect: 0, bestCombo: 0, routes: 0 }, starsTotal: 0, chessLessons: {}, words: {}, parent: Skills.newParent(), bil: Skills.newBil(), skills: Skills.newSkills(), hist: {}, route: null,
   sound: true, recent: [], ts: 0, lang: (/^(be|cs|en|ru)/i.exec(navigator.language || '') || ['ru'])[0].toLowerCase() });
 let S;
 const OLD_KEYS = ['hearts', 'heartAt', 'streak', 'bestStreak', 'lastDay', 'todayDate', 'todayXp', 'goalPaid'];
 const KEY2 = 'umniki.v2', MAX_KIDS = 3;
-let FAM = { kids: [], parent: null };   // семья: до 3 детских профилей и общий родительский PIN/лимит
+let FAM = { kids: [], parent: null, consent: { seen: '', cloud: '' } };   // семья: до 3 детских профилей и общий родительский PIN/лимит
 const newId = () => 'k' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
 function norm(raw) {   // приводит сохранённое состояние ребёнка к актуальному виду
   const s = Object.assign(defState(), raw || {});
@@ -76,6 +76,7 @@ function norm(raw) {   // приводит сохранённое состоян
   if (s.starsTotal === undefined || (raw && raw.done && !raw.starsTotal)) {   // перенос звёзд из старых «уроков»
     s.starsTotal = Math.max(s.starsTotal || 0, Object.values((raw && raw.done) || {}).reduce((a, arr) => a + (arr || []).reduce((x, y) => x + (y || 0), 0), 0)); }
   if (!s.chessLessons || typeof s.chessLessons !== 'object') s.chessLessons = {};
+  if (!s.words || typeof s.words !== 'object') s.words = {};
   s.bil = Skills.fixBil(s.bil); s.skills = Skills.fixSkills(s.skills); if (!s.hist || typeof s.hist !== 'object') s.hist = {};
   for (const k of [...OLD_KEYS, 'done', 'parent']) delete s[k];
   s.lang = langOk(s.lang); s.age = Skills.AGES.includes(s.age | 0) ? s.age | 0 : 0;
@@ -87,12 +88,12 @@ function useKid(id) {
   S.parent = FAM.parent; applyLang();
 }
 function setFam(raw) {
-  FAM = { kids: [], parent: Skills.fixParent(raw && raw.parent) };
+  FAM = { kids: [], parent: Skills.fixParent(raw && raw.parent), consent: Object.assign({ seen: '', cloud: '' }, (raw && raw.consent) || {}) };
   const ids = new Set();
   for (const k of (raw && raw.kids) || []) { const x = norm(k); if (!x.id || ids.has(x.id)) x.id = newId(); ids.add(x.id); FAM.kids.push(x); }
   useKid(raw && raw.active);
 }
-const famJSON = () => ({ v: 2, active: S.id, parent: clone(FAM.parent), kids: FAM.kids.map(k => { const c = Object.assign({}, k); delete c.parent; return c; }) });
+const famJSON = (cloud) => ({ v: 2, active: S.id, parent: clone(FAM.parent), ...(cloud ? {} : { consent: clone(FAM.consent) }), kids: FAM.kids.map(k => { const c = Object.assign({}, k); delete c.parent; return c; }) });
 function load() {
   let v2 = null, v1 = null;
   try { v2 = JSON.parse(localStorage.getItem(KEY2)); } catch (e) {}
@@ -216,12 +217,12 @@ const tabs = on => `<nav class="tabs">${[['home', '🏠', tt('Учёба', 'На
 
 function render() {
   if (!S.name) R = 'onboard';
-  if (R !== 'parent' && R !== 'report' && R !== 'kid') parentOK = false;
+  if (!['parent', 'report', 'kid', 'gloss', 'privacy'].includes(R)) parentOK = false;
   if ((R === 'parent' || R === 'report') && !parentOK) { PN = { mode: Skills.hasPin(S.parent) ? 'enter' : 'set', buf: '', first: '', next: R, back: 'profile', err: '' }; R = 'pin'; }
   if (R === 'kid' && !parentOK) R = 'profile';
   if (R === 'profile' || R === 'onboard') prefetchFb();
-  ({ onboard: rOnboard, home: rHome, shop: rShop, awards: rAwards, profile: rProfile, report: rReport, chess: rChess, pin: rPin, parent: rParent, who: rWho, kid: rKid, timeup: rTimeup, lesson: rLesson, result: rResult })[R]();
-  window.scrollTo(0, 0);
+  ({ onboard: rOnboard, home: rHome, shop: rShop, awards: rAwards, profile: rProfile, report: rReport, chess: rChess, pin: rPin, parent: rParent, who: rWho, kid: rKid, gloss: rGloss, privacy: rPrivacy, timeup: rTimeup, lesson: rLesson, result: rResult })[R]();
+  window.scrollTo(0, 0); renderBanner();
 }
 
 /* ---------- онбординг ---------- */
@@ -239,6 +240,65 @@ function rOnboard() {
     <button class="btn ghost sm" data-a="login">🔑 ${tt('У меня уже есть профиль — войти через Google', 'У мяне ўжо ёсць профіль — увайсці праз Google', `Už mám profil – přihlásit se přes Google`, `I already have a profile – sign in with Google`)}</button>
     <div class="rs" style="text-align:center">${tt('Родителям: PIN и лимит времени — в профиле, «Родительская зона».', 'Бацькам: PIN і ліміт часу — у профілі, «Бацькоўская зона».', `Rodičům: PIN a limit času najdete v profilu, „Rodičovská zóna“.`, `For parents: PIN and time limit are in the profile, “Parents’ zone”.`)}</div>
     <div style="margin-top:auto"><button class="btn grn" data-a="obstart">${tt('Поехали!', 'Паехалі!', `Jdeme na to!`, `Let's go!`)}</button></div></div>`;
+}
+
+/* ---------- словарик терминов (F13) ---------- */
+let GB = 'profile';
+const glossList = q => {
+  const lq = q.trim().toLowerCase(), terms = Glossary.TERMS.filter(t => !lq || Glossary.LANGS.some(l => t[l].toLowerCase().includes(lq)));
+  if (!terms.length) return `<div class="rs" style="text-align:center;margin:20px">${tt('Такого слова нет', 'Такога слова няма', `Takové slovo tu není`, `No such word`)}</div>`;
+  return Object.keys(Glossary.CATS).map(c => { const ts = terms.filter(t => t.cat === c); if (!ts.length) return '';
+    return `<div class="sect">${P(Glossary.CATS[c])}</div>` + ts.map(t => `<div class="gl"><b>${esc(t[S.lang])}</b>${Glossary.LANGS.filter(l => l !== S.lang).map(l => `<span><i>${l.toUpperCase()}</i>${esc(t[l])}</span>`).join('')}</div>`).join(''); }).join('');
+};
+function rGloss() {
+  root.innerHTML = topBar() + `<div class="page"><button class="back" data-a="glossback">← ${tt('Назад', 'Назад', `Zpět`, `Back`)}</button>
+    <div class="h1">📖 ${tt('Словарик', 'Слоўнік', `Slovníček`, `Glossary`)}</div>
+    <div class="rs" style="margin:0 2px 8px">${tt('Математические слова на четырёх языках. В задании нажми на слово с точками под ним — увидишь перевод.', 'Матэматычныя словы на чатырох мовах. У задачы націсні на слова з кропкамі пад ім — убачыш пераклад.', `Matematická slova ve čtyřech jazycích. V úloze klepni na slovo s tečkami pod ním – uvidíš překlad.`, `Maths words in four languages. In a task, tap a word with dots under it to see the translation.`)} <b>${Glossary.TERMS.length}</b> ${tt('слов', 'слоў', `slov`, `words`)}.</div>
+    <input id="gq" class="kin" aria-label="${tt('Найти слово', 'Знайсці слова', `Najít slovo`, `Find a word`)}" placeholder="🔍 ${tt('Найти слово', 'Знайсці слова', `Najít slovo`, `Find a word`)}" autocomplete="off">
+    <div id="gl">${glossList('')}</div></div>` + tabs('');
+}
+
+/* ---------- приватность и cookie ---------- */
+let PB = 'profile';
+const PRIVACY = {
+  ru: [['Что мы храним', 'Имя или псевдоним ребёнка, возраст, результаты заданий, награды и настройки. Фамилия, фото, адрес и точная дата рождения не нужны и не запрашиваются.'],
+    ['Где', 'По умолчанию — только в памяти браузера на этом устройстве. Облачное сохранение родитель включает по желанию: тогда те же данные хранятся в сервисе Google Firebase (Firestore) в вашем аккаунте Google, доступ к ним только у вас.'],
+    ['Реклама и трекеры', 'Нет рекламы, нет аналитики и сторонних трекеров. Единственный внешний сервис — Google Firebase, он подключается только после вашего согласия на вход через Google.'],
+    ['Cookie и память браузера', 'Используется только необходимая память браузера (localStorage) для работы игры и кэш для работы без интернета. Рекламных и аналитических cookie нет, поэтому отдельное согласие на них не требуется.'],
+    ['Ваши права', 'В «Родительской зоне» → «Данные и приватность»: скачать все данные (файл JSON), удалить их навсегда (на устройстве и в облаке) и отозвать согласие на облако.'],
+    ['Дети', 'Профили, облако и удаление данных защищены родительским PIN. Это краткое описание, а не юридический документ.']],
+  be: [['Што мы захоўваем', 'Імя або псеўданім дзіцяці, узрост, вынікі заданняў, узнагароды і налады. Прозвішча, фота, адрас і дакладная дата нараджэння не патрэбныя і не запытваюцца.'],
+    ['Дзе', 'Па змаўчанні — толькі ў памяці браўзера на гэтай прыладзе. Воблачнае захаванне бацька ўключае па жаданні: тады тыя ж даныя захоўваюцца ў сэрвісе Google Firebase (Firestore) у вашым акаўнце Google, доступ толькі ў вас.'],
+    ['Рэклама і трэкеры', 'Няма рэкламы, аналітыкі і староніх трэкераў. Адзіны знешні сэрвіс — Google Firebase, ён падключаецца толькі пасля вашай згоды на ўваход праз Google.'],
+    ['Cookie і памяць браўзера', 'Выкарыстоўваецца толькі неабходная памяць браўзера (localStorage) для працы гульні і кэш для працы без інтэрнэту. Рэкламных і аналітычных cookie няма, таму асобная згода на іх не патрэбная.'],
+    ['Вашы правы', 'У «Бацькоўскай зоне» → «Даныя і прыватнасць»: спампаваць усе даныя (файл JSON), выдаліць іх назаўжды (на прыладзе і ў воблаку) і адклікаць згоду на воблака.'],
+    ['Дзеці', 'Профілі, воблака і выдаленне даных абаронены бацькоўскім PIN. Гэта кароткае апісанне, а не юрыдычны дакумент.']],
+  cs: [['Co ukládáme', 'Jméno či přezdívku dítěte, věk, výsledky úloh, odměny a nastavení. Příjmení, fotku, adresu ani přesné datum narození nepotřebujeme a nežádáme.'],
+    ['Kde', 'Ve výchozím stavu jen v paměti prohlížeče v tomto zařízení. Ukládání do cloudu zapíná rodič dobrovolně: tytéž údaje se pak ukládají ve službě Google Firebase (Firestore) ve vašem účtu Google a máte k nim přístup jen vy.'],
+    ['Reklamy a sledování', 'Žádné reklamy, analytika ani sledovače třetích stran. Jedinou externí službou je Google Firebase, která se připojí až po vašem souhlasu s přihlášením přes Google.'],
+    ['Cookies a paměť prohlížeče', 'Používáme jen nezbytnou paměť prohlížeče (localStorage) pro chod hry a mezipaměť pro práci bez internetu. Reklamní ani analytické cookies nepoužíváme, proto se na ně souhlas nevyžaduje.'],
+    ['Vaše práva', 'V „Rodičovské zóně“ → „Data a soukromí“: stáhnout všechna data (soubor JSON), trvale je smazat (v zařízení i v cloudu) a odvolat souhlas s cloudem.'],
+    ['Děti', 'Profily, cloud a mazání dat chrání rodičovský PIN. Je to stručný popis, nikoli právní dokument.']],
+  en: [['What we store', 'The child’s name or nickname, age, task results, rewards and settings. We do not need or ask for a surname, photo, address or exact date of birth.'],
+    ['Where', 'By default only in the browser storage on this device. A parent can optionally turn on cloud saving: the same data is then kept in Google Firebase (Firestore) under your Google account, and only you can access it.'],
+    ['Ads and trackers', 'No ads, no analytics and no third-party trackers. The only external service is Google Firebase, connected only after you agree to sign in with Google.'],
+    ['Cookies and browser storage', 'Only the browser storage necessary to run the game (localStorage) and a cache for offline use are used. There are no advertising or analytics cookies, so no separate consent is needed for them.'],
+    ['Your rights', 'In the Parents’ zone → “Data and privacy”: download all data (a JSON file), delete it permanently (on the device and in the cloud) and withdraw consent to the cloud.'],
+    ['Children', 'Profiles, the cloud and data deletion are protected by the parent PIN. This is a short summary, not a legal document.']],
+};
+function rPrivacy() {
+  root.innerHTML = topBar() + `<div class="page"><button class="back" data-a="privback">← ${tt('Назад', 'Назад', `Zpět`, `Back`)}</button>
+    <div class="h1">🛡 ${tt('Приватность и cookie', 'Прыватнасць і cookie', `Soukromí a cookies`, `Privacy and cookies`)}</div>
+    ${PRIVACY[getLang()].map(([h, t]) => `<div class="pv"><b>${h}</b><p>${t}</p></div>`).join('')}</div>` + tabs('');
+}
+function renderBanner() {
+  const old = $('#cb'), show = !FAM.consent.seen && !['lesson', 'result', 'privacy', 'who'].includes(R);
+  if (!show) { if (old) old.remove(); return; }
+  if (old) old.remove();
+  const el = document.createElement('div'); el.id = 'cb'; el.className = 'cb'; el.setAttribute('role', 'region'); el.setAttribute('aria-label', tt('Приватность', 'Прыватнасць', `Soukromí`, `Privacy`));
+  el.innerHTML = `<p>🍪 ${tt('Прогресс хранится только на этом устройстве, без рекламы и трекеров. Облако Google включается только с согласия родителя.', 'Прагрэс захоўваецца толькі на гэтай прыладзе, без рэкламы і трэкераў. Воблака Google ўключаецца толькі са згоды бацькоў.', `Postup se ukládá jen v tomto zařízení, bez reklam a sledování. Cloud Google se zapíná jen se souhlasem rodiče.`, `Progress is stored only on this device, with no ads or trackers. Google cloud is turned on only with a parent’s consent.`)}</p>
+    <div class="cbb"><button class="btn sm" data-a="cbok">${tt('Понятно', 'Зразумела', `Rozumím`, `Got it`)}</button><button class="btn ghost sm" data-a="privacy">${tt('Подробнее', 'Падрабязней', `Více`, `Details`)}</button></div>`;
+  document.body.insertBefore(el, root);
 }
 
 /* ---------- кто занимается: вход по картинке (F3) ---------- */
@@ -338,6 +398,7 @@ function rProfile() {
       <div class="bar xp"><i style="width:${pr}%"></i></div></div></div>
     <div class="row2"><button class="btn ghost sm" data-a="goto" data-t="shop">🎁 ${tt('Сменить друга и шляпу', 'Змяніць сябра і галаўны ўбор', `Změnit kamaráda a klobouk`, `Change friend and hat`)}</button></div>
     <div class="row2"><button class="btn ghost sm" data-a="sound">${S.sound ? tt('🔊 Звук включён', '🔊 Гук уключаны', `🔊 Zvuk zapnutý`, `🔊 Sound on`) : tt('🔇 Звук выключен', '🔇 Гук выключаны', `🔇 Zvuk vypnutý`, `🔇 Sound off`)}</button></div>
+    <div class="row2"><button class="btn ghost sm" data-a="glossary">📖 ${tt('Словарик', 'Слоўнік', `Slovníček`, `Glossary`)}</button></div>
     ${FAM.kids.length > 1 ? `<div class="row2"><button class="btn ghost sm" data-a="switchkid">👥 ${tt('Сменить профиль', 'Змяніць профіль', `Změnit profil`, `Switch profile`)}</button></div>` : ''}
     <div class="sect">🔒</div>
     <div class="row2"><button class="btn blu sm" data-a="parentzone">🔒 ${tt('Родительская зона', 'Бацькоўская зона', `Rodičovská zóna`, `Parents’ zone`)}</button></div>
@@ -382,6 +443,11 @@ function rParent() {
       : `<div class="row2"><button class="btn blu sm" data-a="login">🔑 ${tt('Войти через Google и сохранить прогресс', 'Увайсці праз Google і захаваць прагрэс', `Přihlásit se přes Google a uložit postup`, `Sign in with Google and save progress`)}</button></div>`}
     <div class="sect">🌐 ${tt('Язык', 'Мова', 'Jazyk', 'Language')}</div>
     <div class="pets lang">${Object.entries(LANG_NAMES).map(([c, n]) => `<button class="${S.lang === c ? 'on' : ''}" data-a="lang" data-l="${c}">${n}</button>`).join('')}</div>
+    <div class="sect">🛡 ${tt('Данные и приватность', 'Даныя і прыватнасць', `Data a soukromí`, `Data and privacy`)}</div>
+    <div class="rs" style="margin:0 2px 6px">☁️ ${FAM.consent.cloud ? tt('Облако разрешено', 'Воблака дазволена', `Cloud povolen`, `Cloud allowed`) + ' · ' + FAM.consent.cloud.slice(0, 10) : tt('Облако не включено: данные только на этом устройстве.', 'Воблака не ўключана: даныя толькі на гэтай прыладзе.', `Cloud není zapnutý: data jsou jen v tomto zařízení.`, `Cloud is off: data stays on this device only.`)}</div>
+    <div class="row2"><button class="btn ghost sm" data-a="privacy">📄 ${tt('Политика', 'Палітыка', `Zásady`, `Policy`)}</button><button class="btn ghost sm" data-a="exportdata">⬇️ ${tt('Скачать данные', 'Спампаваць даныя', `Stáhnout data`, `Download data`)}</button></div>
+    <div class="row2">${FAM.consent.cloud ? `<button class="btn ghost sm" data-a="withdraw">↩️ ${tt('Отозвать облако', 'Адклікаць воблака', `Odvolat cloud`, `Withdraw cloud`)}</button>` : ''}<button class="btn ghost sm" data-a="eraseall" style="color:#a82828">🗑 ${tt('Удалить все данные', 'Выдаліць усе даныя', `Smazat všechna data`, `Delete all data`)}</button></div>
+    <div class="row2"><button class="btn ghost sm" data-a="glossary">📖 ${tt('Словарик', 'Слоўнік', `Slovníček`, `Glossary`)}</button></div>
     <div class="sect">${tt('Настройки', 'Налады', `Nastavení`, `Settings`)}</div>
     <div class="row2"><button class="btn ghost sm" data-a="rename">✏️ ${tt('Сменить имя', 'Змяніць імя', `Změnit jméno`, `Change name`)}</button><button class="btn ghost sm" data-a="changepin">🔢 ${tt('Сменить PIN', 'Змяніць PIN', `Změnit PIN`, `Change PIN`)}</button></div>
     <div class="row2"><button class="btn ghost sm" data-a="reset">🗑 ${tt('Начать заново', 'Пачаць зноў', `Začít znovu`, `Start over`)}</button></div></div>` + tabs('');
@@ -505,6 +571,9 @@ ${S.bil.second ? (() => {
       ${hard ? `<div class="rs" style="margin:2px 2px 6px">${tt('Чаще всего непонятны задания', 'Часцей за ўсё незразумелыя заданні', `Nejčastěji nerozumí úlohám`, `Most often unclear`)}: ${hard}</div>` : ''}
       ${S.bil.adaptedAt && Skills.addDays(S.bil.adaptedAt, 7) >= t0 ? `<div class="rs" style="margin:2px 2px 6px">⚙️ ${tt('Доля второго языка подстроена автоматически', 'Доля другой мовы падладжана аўтаматычна', `Podíl druhého jazyka byl upraven automaticky`, `The second-language share was adjusted automatically`)}.</div>` : ''}`;
     })() : ''}
+    ${(() => { const ws = Object.entries(S.words || {}).filter(([id]) => Glossary.byId[id]).sort((a, b) => b[1] - a[1]).slice(0, 6); if (!ws.length) return '';
+      return `<div class="sect">📖 ${tt('Слова, о которых спрашивал', 'Словы, пра якія пытаўся', `Slova, na která se ptal(a)`, `Words looked up`)}</div><div class="chips">${ws.map(([id, n]) => `<span class="chip2">${esc(Glossary.byId[id][S.lang])} · ${n}</span>`).join('')}</div>
+        <div class="rs" style="margin:4px 2px 8px">${tt('Термины, на которые ребёнок нажимал в заданиях.', 'Тэрміны, на якія дзіця націскала ў заданнях.', `Pojmy, na které dítě v úlohách klepalo.`, `Terms the child tapped in tasks.`)}</div>`; })()}
     <div class="sect">${tt('Чем помочь дома', 'Чым дапамагчы дома', `Jak pomoci doma`, `How to help at home`)}</div>
     <div class="tip">${enough && weak ? `<b>${tt('Сейчас стоит поддержать', 'Зараз варта падтрымаць', `Teď stojí za to podpořit`, `Worth supporting now`)}: ${SK[weak].icon} ${P(SK[weak].name)}</b><br>${P(TIPS[weak])}`
       : tt('Пока мало данных. После нескольких занятий здесь появится картина и совет.', 'Пакуль мала даных. Пасля некалькіх заняткаў тут з’явіцца карціна і парада.', `Zatím málo dat. Po několika trénincích tu uvidíte přehled i radu.`, `Not much data yet. After a few sessions the picture and a tip will appear here.`)}</div>
@@ -549,7 +618,16 @@ const view = q => (L && L.alt && q.seed != null && bilOn() ? altOf(q) : q);
 const viewLang = q => (L && L.alt && q.seed != null && bilOn() ? otherLang(q) : (q.lang || S.lang));
 const langChip = q => (bilOn() && q.seed != null ? `<span class="tag lg">🌍 ${LANG_NAMES[viewLang(q)]}</span>` : '');
 const globeBtn = q => (bilOn() && q.seed != null ? `<button class="btn ghost glb${L.alt ? ' on' : ''}" data-a="alt" aria-label="${tt('Не понял: показать на другом языке', 'Не зразумеў: паказаць на іншай мове', `Nerozumím: ukázat v druhém jazyce`, `Don't understand: show in the other language`)}">🌐</button>` : '');
-const qHTML = (q, v) => `${qTag(q)}${langChip(q)}<div class="qtext">${v.text}</div>${v.visual ? `<div class="visual">${v.visual}</div>` : ''}`;
+/* B4: слова из глоссария в тексте задания — по касанию показываем перевод (без штрафа) */
+function glossify(html, lang) {
+  return String(html).split(/(<[^>]+>)/).map(seg => {
+    if (seg.startsWith('<') || !seg.trim()) return seg;
+    const f = Glossary.find(seg, lang); if (!f.length) return seg;
+    let out = '', pos = 0; for (const h of f) { out += seg.slice(pos, h.from) + `<span class="gw" data-a="gloss" data-g="${h.id}" data-l="${lang}" role="button" tabindex="0">${seg.slice(h.from, h.to)}</span>`; pos = h.to; }
+    return out + seg.slice(pos);
+  }).join('');
+}
+const qHTML = (q, v) => `${qTag(q)}${langChip(q)}<div class="qtext">${glossify(v.text, viewLang(q))}</div>${v.visual ? `<div class="visual">${v.visual}</div>` : ''}`;
 function lHead() {
   const prog = Math.round(L.resolved / (L.total + L.added) * 100), r = S.route;
   const right = L.route && r ? `${Math.min(r.done.length + 1, r.skills.length)}/${r.skills.length}` : SK[L.skill].icon;
@@ -731,7 +809,7 @@ function fbInit() {
   })().catch(e => { fbP = null; throw e; });
   return fbP;
 }
-const prefetchFb = () => { if (!fbP) fbInit().catch(() => {}); };
+const prefetchFb = () => { if (!fbP && FAM.consent.cloud) fbInit().catch(() => {}); };
 function setCloud(st) { cloudState = st; if (R === 'profile') rProfile(); }
 
 const clone = o => JSON.parse(JSON.stringify(o));
@@ -751,6 +829,7 @@ function mergeStates(a, b) {
   m.stat = {}; for (const k of new Set([...Object.keys(a.stat), ...Object.keys(b.stat)])) m.stat[k] = Math.max(a.stat[k] || 0, b.stat[k] || 0);
   m.starsTotal = Math.max(a.starsTotal || 0, b.starsTotal || 0);
   m.chessLessons = {}; for (const k of new Set([...Object.keys(a.chessLessons || {}), ...Object.keys(b.chessLessons || {})])) m.chessLessons[k] = Math.max((a.chessLessons || {})[k] || 0, (b.chessLessons || {})[k] || 0);
+  m.words = {}; for (const k of new Set([...Object.keys(a.words || {}), ...Object.keys(b.words || {})])) m.words[k] = Math.max((a.words || {})[k] || 0, (b.words || {})[k] || 0);
   m.skills = Skills.mergeSkills(a.skills, b.skills); m.hist = Skills.mergeHist(a.hist, b.hist);
   m.route = (a.route && b.route && a.route.date === b.route.date) ? (a.route.done.length >= b.route.done.length ? a.route : b.route) : nw.route;
     m.bil = Skills.mergeBil(Skills.fixBil(nw.bil), Skills.fixBil(ol.bil));
@@ -773,9 +852,10 @@ function mergeFam(a, b) {
 }
 const famFromCloud = d => d && d.fam && Array.isArray(d.fam.kids) ? d.fam
   : d && d.s ? { kids: [Object.assign({}, d.s, { id: d.s.id || 'k1' })], parent: d.s.parent, active: d.s.id || 'k1' } : null;
+let noPush = false;
 async function pushNow() {
-  if (!fbUser || !fbDb) return;
-  await fbDb.collection('users').doc(fbUser.uid).set({ fam: famJSON(), updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+  if (!fbUser || !fbDb || noPush) return;
+  await fbDb.collection('users').doc(fbUser.uid).set({ fam: famJSON(true), updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
 }
 function pushSoon() {
   if (!fbUser) return;
@@ -801,7 +881,17 @@ async function onAuth(user) {
 }
 const cloudText = () => ({ syncing: tt('Сохраняю…', 'Захоўваю…', `Ukládám…`, `Saving…`), ok: tt('Прогресс сохранён в облаке', 'Прагрэс захаваны ў воблаку', `Postup je uložen v cloudu`, `Progress saved in the cloud`),
   error: tt('Не удалось сохранить — проверь интернет', 'Не атрымалася захаваць — праверы інтэрнэт', `Uložení se nepovedlo – zkontroluj připojení`, `Could not save – check your internet`), off: '' })[cloudState];
+function askCloudConsent(then) {
+  modal({ icon: '☁️', title: tt('Включить облако Google?', 'Уключыць воблака Google?', `Zapnout cloud Google?`, `Turn on Google cloud?`),
+    text: tt('Согласие даёт родитель. Чтобы сохранять прогресс в облаке, приложение подключит сервис Google Firebase (вход и хранилище): Google получит e-mail родителя и данные профилей детей — имя или псевдоним, возраст и результаты. Это необязательно: без облака всё работает на устройстве. Согласие можно отозвать в «Родительской зоне».',
+      'Згоду дае бацька. Каб захоўваць прагрэс у воблаку, праграма падключыць сэрвіс Google Firebase (уваход і сховішча): Google атрымае e-mail бацькоў і даныя профіляў дзяцей — імя або псеўданім, узрост і вынікі. Гэта неабавязкова: без воблака ўсё працуе на прыладзе. Згоду можна адклікаць у «Бацькоўскай зоне».',
+      `Souhlas uděluje rodič. Pro ukládání postupu do cloudu aplikace připojí službu Google Firebase (přihlášení a úložiště): Google získá e-mail rodiče a údaje o profilech dětí – jméno či přezdívku, věk a výsledky. Je to dobrovolné: bez cloudu vše funguje v zařízení. Souhlas lze odvolat v „Rodičovské zóně“.`,
+      `A parent gives this consent. To save progress in the cloud the app connects Google Firebase (sign-in and storage): Google receives the parent’s e-mail and the children’s profile data – name or nickname, age and results. It is optional: without the cloud everything works on the device. You can withdraw consent in the Parents’ zone.`),
+    btns: [{ t: tt('Согласен, войти', 'Згодны, увайсці', `Souhlasím, přihlásit`, `I agree, sign in`), c: 'grn', f: () => { FAM.consent.cloud = new Date().toISOString(); save({ nopush: true }); fbInit().then(then).catch(() => toast(tt('Нет интернета или Google недоступен', 'Няма інтэрнэту або Google недаступны', `Žádné připojení, nebo je Google nedostupný`, `No internet or Google is unavailable`))); } },
+      { t: tt('Не сейчас', 'Не цяпер', `Teď ne`, `Not now`), c: 'ghost', f: () => { pinResetPending = false; } }] });
+}
 function login() {
+  if (!FAM.consent.cloud) { askCloudConsent(() => login()); return; }
   if (!fbLoaded) {
     toast(tt('Загружаю вход… нажми ещё раз через секунду', 'Загружаю ўваход… націсні яшчэ раз праз секунду', `Načítám přihlášení… zkus to za vteřinu znovu`, `Loading sign-in… press again in a second`));
     fbInit().catch(() => toast(tt('Нет интернета или Google недоступен', 'Няма інтэрнэту або Google недаступны', `Žádné připojení, nebo je Google nedostupný`, `No internet or Google is unavailable`))); return;
@@ -824,11 +914,52 @@ function press(k) {
   if (k === 'b') L.input = L.input.slice(0, -1); else if (k === 'c') L.input = ''; else if (L.input.length < 6) L.input = (L.input + k).replace(/^0+(?=\d)/, '');
   sfx.tap(); rLesson();
 }
+/* ---------- экспорт и удаление данных (GDPR) ---------- */
+const exportData = () => ({ app: 'umniki', format: 1, exportedAt: new Date().toISOString(),
+  family: { dailyLimitMin: FAM.parent.limit, parentPinSet: Skills.hasPin(FAM.parent) }, consent: clone(FAM.consent),
+  children: FAM.kids.map(k => { const c = clone(k); delete c.parent; return c; }) });
+function downloadJSON(name, obj) {
+  const text = JSON.stringify(obj, null, 2), blob = new Blob([text], { type: 'application/json' });
+  try { const f = new File([blob], name, { type: 'application/json' }); if (navigator.canShare && navigator.canShare({ files: [f] })) { navigator.share({ files: [f], title: name }).catch(() => {}); return; } } catch (e) {}
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
+}
+async function cloudErase() {   // удаляет документ семьи и аккаунт Firebase; false — если не вышло
+  if (!fbUser || !fbDb) return true;
+  try { clearTimeout(pushTimer); pushTimer = null; await fbDb.collection('users').doc(fbUser.uid).delete(); } catch (e) { return false; }
+  try { await fbUser.delete(); } catch (e) { /* нужен свежий вход — просто выходим, данных в облаке уже нет */ }
+  return true;
+}
 const A = {
   lang(el) { const v = ($('#nm') || {}).value; if (v !== undefined && !S.name) S.name = v; S.lang = el.dataset.l; if (S.bil.second === S.lang) S.bil.second = ''; setLang(S.lang); document.documentElement.lang = S.lang; document.title = tt('Умники', 'Разумнікі', `Chytráci`, `Smart Kids`); phrase = newPhrase(); save(); if (R === 'onboard' || !S.name) { rOnboard(); const i = $('#nm'); if (i) i.value = S.name; } else render(); },
   profile() { sfx.tap(); R = 'profile'; render(); },
   login() { login(); },
   logout() { logout(); },
+  gloss(el) {
+    const t = Glossary.byId[el.dataset.g]; if (!t) return;
+    const lg = el.dataset.l, others = Glossary.LANGS.filter(l => l !== lg), sec = S.bil.second;
+    S.words[t.id] = (S.words[t.id] || 0) + 1; save(); sfx.tap();
+    modal({ icon: '📖', title: esc(t[lg]), text: others.map(l => `<div style="margin:4px 0;${l === sec ? 'font-size:1.15em' : ''}"><small style="opacity:.7">${LANG_NAMES[l]}</small><br><b>${esc(t[l])}</b></div>`).join(''), btns: [{ t: tt('Понятно', 'Зразумела', `Jasné`, `Got it`), c: 'grn', f: () => {} }] });
+  },
+  glossary() { GB = R; sfx.tap(); R = 'gloss'; render(); },
+  glossback() { R = GB === 'parent' ? 'parent' : 'profile'; render(); },
+  privacy() { if (R !== 'privacy') PB = R; sfx.tap(); R = 'privacy'; render(); },
+  privback() { R = PB || 'profile'; render(); },
+  cbok() { FAM.consent.seen = new Date().toISOString(); save({ nopush: true }); renderBanner(); },
+  exportdata() { downloadJSON('umniki-data-' + today() + '.json', exportData()); toast(tt('Файл с данными готов ✓', 'Файл з данымі гатовы ✓', `Soubor s daty je připraven ✓`, `Data file is ready ✓`)); },
+  withdraw() {
+    modal({ icon: '↩️', title: tt('Отозвать согласие на облако?', 'Адклікаць згоду на воблака?', `Odvolat souhlas s cloudem?`, `Withdraw cloud consent?`), text: tt('Вход через Google выключится, а данные в облаке будут удалены. На этом устройстве всё останется.', 'Уваход праз Google выключыцца, а даныя ў воблаку будуць выдалены. На гэтай прыладзе ўсё застанецца.', `Přihlášení přes Google se vypne a data v cloudu se smažou. V tomto zařízení vše zůstane.`, `Google sign-in will be turned off and the data in the cloud deleted. Everything stays on this device.`),
+      btns: [{ t: tt('Оставить', 'Пакінуць', `Nechat`, `Keep`), c: 'grn', f: () => {} }, { t: tt('Отозвать и удалить из облака', 'Адклікаць і выдаліць з воблака', `Odvolat a smazat z cloudu`, `Withdraw and delete from cloud`), c: 'red', f: async () => {
+        if (!(await cloudErase())) { toast(tt('Не удалось связаться с облаком — проверьте интернет', 'Не атрымалася звязацца з воблакам — праверце інтэрнэт', `Nepodařilo se spojit s cloudem – zkontrolujte připojení`, `Could not reach the cloud – check your internet`)); return; }
+        if (fbAuth) { try { await fbAuth.signOut(); } catch (e) {} } setCloudFlag(false); FAM.consent.cloud = ''; save({ nopush: true }); toast(tt('Согласие отозвано, данные в облаке удалены ✓', 'Згода адкліканая, даныя ў воблаку выдалены ✓', `Souhlas odvolán, data v cloudu smazána ✓`, `Consent withdrawn, cloud data deleted ✓`)); render(); } }] });
+  },
+  eraseall() {
+    const cloudLeft = !fbUser && FAM.consent.cloud;
+    modal({ icon: '🗑', title: tt('Удалить все данные?', 'Выдаліць усе даныя?', `Smazat všechna data?`, `Delete all data?`), text: tt('Будут навсегда удалены профили всех детей, прогресс, PIN и настройки' + (fbUser ? ', в том числе из облака.' : '.'), 'Будуць назаўсёды выдалены профілі ўсіх дзяцей, прагрэс, PIN і налады' + (fbUser ? ', у тым ліку з воблака.' : '.'), 'Navždy se smažou profily všech dětí, postup, PIN a nastavení' + (fbUser ? ', včetně cloudu.' : '.'), 'The profiles of all children, progress, PIN and settings will be deleted forever' + (fbUser ? ', including the cloud.' : '.'))
+        + (cloudLeft ? tt(' Вы не вошли в Google, поэтому копия в облаке останется: сначала войдите и повторите удаление.', ' Вы не ўвайшлі ў Google, таму копія ў воблаку застанецца: спачатку ўвайдзіце і паўтарыце выдаленне.', ` Nejste přihlášeni ke Googlu, takže kopie v cloudu zůstane: nejdřív se přihlaste a smazání zopakujte.`, ` You are not signed in to Google, so the cloud copy would stay: sign in first and repeat the deletion.`) : ''),
+      btns: [{ t: tt('Оставить', 'Пакінуць', `Nechat`, `Keep`), c: 'grn', f: () => {} }, { t: tt('Да, удалить всё', 'Так, выдаліць усё', `Ano, smazat vše`, `Yes, delete everything`), c: 'red', f: async () => {
+        if (!(await cloudErase())) { toast(tt('Не удалось удалить из облака — проверьте интернет и повторите', 'Не атрымалася выдаліць з воблака — праверце інтэрнэт і паўтарыце', `Smazání z cloudu se nepovedlo – zkontrolujte připojení a zopakujte`, `Could not delete from the cloud – check your internet and try again`)); return; }
+        noPush = true; clearTimeout(pushTimer); try { Object.keys(localStorage).filter(k => k.startsWith('umniki')).forEach(k => localStorage.removeItem(k)); } catch (e) {} location.reload(); } }] });
+  },
   who(el) { useKid(el.dataset.id); parentOK = false; R = 'home'; phrase = newPhrase(); save({ nopush: true }); render(); },
   switchkid() { sfx.tap(); R = 'who'; render(); },
   pkid(el) { useKid(el.dataset.id); phrase = newPhrase(); save({ nopush: true }); sfx.tap(); render(); },
@@ -960,7 +1091,9 @@ document.addEventListener('click', e => {
   if (!ac && S.sound) { try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (er) {} }
   const f = A[el.dataset.a]; if (f) f(el);
 });
+document.addEventListener('input', e => { if (e.target && e.target.id === 'gq') { const g = $('#gl'); if (g) g.innerHTML = glossList(e.target.value); } });
 document.addEventListener('keydown', e => {
+  if ((e.key === 'Enter' || e.key === ' ') && e.target && e.target.classList && e.target.classList.contains('gw')) { e.preventDefault(); A.gloss(e.target); return; }
   if (R !== 'lesson' || !L || $('#modal').innerHTML) return;
   const q = L.queue[0];
   if (L.intro) { if (e.key === 'Enter') A.begin(); return; }
@@ -973,12 +1106,12 @@ document.addEventListener('keydown', e => {
 
 /* ======================== Запуск ======================== */
 load(); phrase = newPhrase(); if (FAM.kids.length > 1) R = 'who'; render();
-if (cloudFlag()) fbInit().catch(() => {});
+if (cloudFlag() && FAM.consent.cloud) fbInit().catch(() => {});
 try { if (window.top !== window.self) document.documentElement.classList.add('embed'); } catch (e) { document.documentElement.classList.add('embed'); }
 const up = $('#totop');
 up.setAttribute('aria-label', tt('Наверх', 'Угару', `Nahoru`, `Up`));
 up.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
 window.addEventListener('scroll', () => { up.hidden = !(window.scrollY > 400 && ['home', 'shop', 'awards'].includes(R)); }, { passive: true });
 if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(() => {});
-window.__umniki = { FAM: () => FAM, useKid, mergeFam, norm, setFam, famJSON, GENS, S: () => S, L: () => L, A, buildSet, skillPool, sigOf, Chess, mergeStates, defState, clone, SK, availSkills, render, save, setR: v => { R = v; }, unlockParent: () => { parentOK = true; }, clearPinLock: () => { pinLockUntil = 0; pinFails = 0; }, limitLeft };
+window.__umniki = { exportData, cloudErase, glossify, FAM: () => FAM, useKid, mergeFam, norm, setFam, famJSON, GENS, S: () => S, L: () => L, A, buildSet, skillPool, sigOf, Chess, mergeStates, defState, clone, SK, availSkills, render, save, setR: v => { R = v; }, unlockParent: () => { parentOK = true; }, clearPinLock: () => { pinLockUntil = 0; pinFails = 0; }, limitLeft };
 })();
