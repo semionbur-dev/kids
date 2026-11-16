@@ -1,7 +1,7 @@
 'use strict';
 (() => {
 const { GENS, LANGS, rnd, pick, shuffle, esc, t: tt, setLang, getLang, generate } = window.Gens;
-const BUILD = 'v20';
+const BUILD = 'v21';
 const P = pair => pair[LANGS.indexOf(getLang())];
 const LANG_NAMES = { be: 'Беларуская', ru: 'Русский', cs: 'Čeština', en: 'English' };
 const langOk = l => (LANGS.includes(l) ? l : 'ru');
@@ -64,7 +64,7 @@ const ACH = [
 /* ======================== Состояние ======================== */
 const KEY = 'umniki.v1';
 const defState = () => ({ id: '', age: 0, name: '', pet: '', pets: [], hat: '', hats: [], coins: 0, xp: 0, ach: {},
-  stat: { lessons: 0, correct: 0, perfect: 0, bestCombo: 0, routes: 0 }, starsTotal: 0, chessLessons: {}, words: {}, speak: 'tap', speakSet: false, parent: Skills.newParent(), bil: Skills.newBil(), skills: Skills.newSkills(), hist: {}, route: null,
+  stat: { lessons: 0, correct: 0, perfect: 0, bestCombo: 0, routes: 0 }, starsTotal: 0, chessLessons: {}, words: {}, speak: 'tap', speakSet: false, speakRate: '', parent: Skills.newParent(), bil: Skills.newBil(), skills: Skills.newSkills(), hist: {}, route: null,
   sound: true, recent: [], ts: 0, lang: (/^(be|cs|en|ru)/i.exec(navigator.language || '') || ['ru'])[0].toLowerCase() });
 let S;
 const OLD_KEYS = ['hearts', 'heartAt', 'streak', 'bestStreak', 'lastDay', 'todayDate', 'todayXp', 'goalPaid'];
@@ -82,6 +82,7 @@ function norm(raw) {   // приводит сохранённое состоян
   s.bil = Skills.fixBil(s.bil); s.skills = Skills.fixSkills(s.skills); if (!s.hist || typeof s.hist !== 'object') s.hist = {};
   for (const k of [...OLD_KEYS, 'done', 'parent']) delete s[k];
   s.lang = langOk(s.lang); s.age = Skills.AGES.includes(s.age | 0) ? s.age | 0 : 0;
+  if (!['slow', 'normal', 'fast'].includes(s.speakRate)) s.speakRate = '';
   if (!['off', 'tap', 'auto'].includes(s.speak)) s.speak = 'tap'; if (!s.speakSet) s.speak = speakDefault(s.age);
   return s;
 }
@@ -457,6 +458,12 @@ function rParent() {
     <div class="rs" style="margin:6px 2px 8px">${tt('Читает голос самого телефона, без интернета. Для 5–7 лет по умолчанию «Сама читает».', 'Чытае голас самога тэлефона, без інтэрнэту. Для 5–7 гадоў па змаўчанні «Сама чытае».', `Čte hlas samotného telefonu, bez internetu. Pro 5–7 let je výchozí „Čte samo“.`, `Uses the phone's own voice, no internet needed. For ages 5–7 the default is “Automatic”.`)}
       <br>${window.Speech && Speech.supported() ? LANGS.map(l => `${LANG_NAMES[l]} ${Speech.canSpeak(l) ? '✓' : '✗'}`).join(' · ') : tt('Этот браузер не умеет читать вслух.', 'Гэты браўзер не ўмее чытаць услых.', `Tento prohlížeč neumí číst nahlas.`, `This browser cannot read aloud.`)}
       ${window.Speech && Speech.supported() && !Speech.canSpeak('be') ? `<br>${tt('Для белорусского на телефоне обычно нет голоса, поэтому на этом языке озвучка выключена.', 'Для беларускай на тэлефоне звычайна няма голасу, таму на гэтай мове агучванне выключана.', `Pro běloruštinu telefon obvykle hlas nemá, proto je na tomto jazyce hlasité čtení vypnuto.`, `Phones usually have no Belarusian voice, so reading aloud is off for that language.`)}` : ''}</div>
+    ${window.Speech && Speech.supported() ? (() => { const langs = [...new Set([S.lang, S.bil.second].filter(Boolean))].filter(l => Speech.voicesFor(l).length);
+      return `<div class="rs" style="margin:0 2px 4px">${tt('Скорость речи', 'Хуткасць маўлення', `Rychlost řeči`, `Speech speed`)}:</div>
+      <div class="chips">${[['slow', tt('Медленно', 'Павольна', `Pomalu`, `Slow`)], ['normal', tt('Обычно', 'Звычайна', `Normálně`, `Normal`)], ['fast', tt('Быстро', 'Хутка', `Rychle`, `Fast`)]].map(([m, n]) => `<button class="chip2${rateKey() === m ? ' on' : ''}" data-a="speakrate" data-m="${m}">${n}</button>`).join('')}</div>
+      ${langs.map(l => { const cur = Speech.pickVoice(l); return `<div class="rs" style="margin:10px 2px 4px">${tt('Голос', 'Голас', `Hlas`, `Voice`)} · ${LANG_NAMES[l]}: <b>${esc(cur ? cur.name : '')}</b></div>
+        <div class="chips voices">${Speech.voicesFor(l).slice(0, 8).map(v => `<button class="chip2 vc${cur && cur.name === v.name ? ' on' : ''}" data-a="voicepick" data-l="${l}" data-n="${esc(v.name)}">${esc(v.name.replace(/\s*\((?:Enhanced|Premium|Улучшенный)\)/i, ' ★'))}</button>`).join('')}</div>
+        <div class="row2" style="margin-top:6px"><button class="btn ghost sm" data-a="voicetest" data-l="${l}">▶ ${tt('Послушать', 'Паслухаць', `Poslechnout`, `Listen`)}</button></div>`; }).join('')}`; })() : ''}
     <div class="sect">🌍 ${tt('Двуязычный режим', 'Двумоўны рэжым', `Dvojjazyčný režim`, `Bilingual mode`)}</div>
     <div class="rs" style="margin:0 2px 6px">${tt('Основной язык', 'Асноўная мова', `Hlavní jazyk`, `Main language`)}: <b>${LANG_NAMES[S.lang]}</b>. ${tt('Второй язык', 'Другая мова', `Druhý jazyk`, `Second language`)}:</div>
     <div class="chips"><button class="chip2${!S.bil.second ? ' on' : ''}" data-a="bilsecond" data-l="">${tt('Выкл', 'Выкл.', `Vypnuto`, `Off`)}</button>${LANGS.filter(l => l !== S.lang).map(l => `<button class="chip2${S.bil.second === l ? ' on' : ''}" data-a="bilsecond" data-l="${l}">${LANG_NAMES[l]}</button>`).join('')}</div>
@@ -659,7 +666,10 @@ function glossify(html, lang) {
 const speakOn = lang => S.speak !== 'off' && window.Speech && Speech.canSpeak(lang);
 const spkBtn = q => (speakOn(viewLang(q)) ? `<button class="spk" data-a="speak" aria-label="${tt('Прочитать вслух', 'Прачытаць услых', `Přečíst nahlas`, `Read aloud`)}">🔊</button>` : '');
 const qText = q => { const v = view(q); return L && q.study && !L.studied && !L.answered ? v.study.text : v.text; };
-function say(html, lang, o) { if (window.Speech) Speech.say(html, lang, Object.assign({ rate: Skills.isYoungAge(S.age) ? 0.8 : 0.9 }, o)); }
+const RATES = { slow: 0.78, normal: 0.92, fast: 1.08 };
+const rateKey = () => S.speakRate || (Skills.isYoungAge(S.age) ? 'slow' : 'normal');
+function say(html, lang, o) { if (window.Speech) Speech.say(html, lang, Object.assign({ rate: RATES[rateKey()] }, o)); }
+const SAMPLE = { ru: 'Привет! Сколько будет 6 умножить на 4?', be: 'Прывітанне! Колькі будзе 6 памножыць на 4?', cs: 'Ahoj! Kolik je 6 krát 4?', en: 'Hi! How much is 6 times 4?' };
 function autoSpeak(q) {   // при появлении вопроса (и при смене языка кнопкой «не понял»), если у ребёнка включено «читать самой»
   if (!L || S.speak !== 'auto' || L.answered) return; const key = (q.study && !L.studied ? 's' : 'q') + (L.alt ? 'a' : 'm');
   if (L.said === q && L.saidKey === key) return; L.said = q; L.saidKey = key; const lang = viewLang(q); if (speakOn(lang)) say(qText(q), lang);
@@ -1072,6 +1082,9 @@ const A = {
     const q = L && L.queue[0]; if (!q) return; const lg = viewLang(q);
     if (window.Speech && Speech.speaking()) { Speech.stop(); return; } if (speakOn(lg)) say(qText(q), lg);
   },
+  speakrate(el) { S.speakRate = el.dataset.m; save(); sfx.tap(); render(); if (window.Speech) { Speech.unlock(); say(SAMPLE[S.lang], S.lang); } },
+  voicepick(el) { const l = el.dataset.l; Speech.setPref(l, el.dataset.n); sfx.tap(); render(); Speech.unlock(); say(SAMPLE[l], l); },
+  voicetest(el) { const l = el.dataset.l; Speech.unlock(); say(SAMPLE[l], l); },
   speakmode(el) { S.speak = el.dataset.m; S.speakSet = true; save(); sfx.tap(); render(); if (window.Speech) { Speech.unlock(); if (S.speak !== 'off' && Speech.canSpeak(S.lang)) say(tt('Привет! Я буду читать задания вслух.', 'Прывітанне! Я буду чытаць заданні ўслых.', `Ahoj! Budu ti číst úlohy nahlas.`, `Hi! I will read the tasks aloud.`), S.lang); } },
   key(el) { press(el.dataset.k); },
   check() { const b = $('[data-a=check]'); if (b && !b.disabled) check(); },

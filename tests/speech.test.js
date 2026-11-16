@@ -2,11 +2,14 @@
 const assert = require('assert'); const S = require('../speech.js');
 let fails = 0; const t = (n, f) => { try { f(); console.log('PASS ' + n); } catch (e) { fails++; process.exitCode = 1; console.log('FAIL ' + n + '\n    ' + e.message); } };
 t('знаки, дроби и пропуски произносятся словами на 4 языках', () => {
-  assert.strictEqual(S.normalize('9 + 7 × 3 = ?', 'ru'), '9 плюс 7 умножить на 3 равно?');
+  assert.strictEqual(S.normalize('9 + 7 × 3 = ?', 'ru'), '9 плюс 7 умножить на 3, равно?');
   assert.strictEqual(S.normalize('12 : 3 − 1', 'cs'), '12 děleno 3 mínus 1');
   assert.strictEqual(S.normalize('6 ÷ 2', 'en'), '6 divided by 2');
   assert.strictEqual(S.normalize('Чему равна <span class="fr"><i>1</i><i>3</i></span> от 12?', 'ru'), 'Чему равна 1 на 3 от 12?');
-  assert.strictEqual(S.normalize('3 + <span class="blank">?</span> = 5', 'be'), '3 плюс прапушчаны лік роўна 5'); });
+  assert.strictEqual(S.normalize('3 + <span class="blank">?</span> = 5', 'be'), '3 плюс прапушчаны лік, роўна 5'); });
+t('текст делится на предложения для пауз и интонации', () => {
+  assert.deepStrictEqual(S.chunks('Было 5, убрали 2. Сколько осталось?'), ['Было 5, убрали 2.', 'Сколько осталось?']);
+  assert.deepStrictEqual(S.chunks('Привет!'), ['Привет!']); assert.deepStrictEqual(S.chunks('Без знака'), ['Без знака']); });
 t('эмодзи называются, единицы читаются словами, разметка и стрелки убираются', () => {
   assert.strictEqual(S.normalize('Сколько 🍎 на картинке?', 'ru'), 'Сколько яблоко на картинке?');
   assert.strictEqual(S.normalize('Kolik je to 🐶?', 'cs'), 'Kolik je to pes?');

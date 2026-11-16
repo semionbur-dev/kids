@@ -4,8 +4,8 @@ const { chromium } = require('playwright');
 const path = require('path');
 const URL = 'file://' + path.resolve(__dirname, '..', 'index.html');
 let fails = 0; const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) { fails++; process.exitCode = 1; } };
-const MOCK = () => { window.__said = []; const voices = [{ lang: 'ru-RU', name: 'Milena', localService: true, default: true }, { lang: 'cs-CZ', name: 'Zuzana', localService: true }, { lang: 'en-US', name: 'Samantha', localService: true }];
-  Object.defineProperty(window, 'SpeechSynthesisUtterance', { value: function (t) { this.text = t; }, configurable: true }); Object.defineProperty(window, 'speechSynthesis', { configurable: true, value: { getVoices: () => voices, cancel() { window.__said.push({ cancel: 1 }); }, speak(u) { window.__said.push({ text: u.text, lang: u.lang, rate: u.rate, vol: u.volume }); setTimeout(() => u.onstart && u.onstart(), 0); setTimeout(() => u.onend && u.onend(), 30); } } }); };
+const MOCK = () => { window.__said = []; const voices = [{ lang: 'ru-RU', name: 'Milena', localService: true, default: true }, { lang: 'ru-RU', name: 'Yuri (Enhanced)', localService: true }, { lang: 'cs-CZ', name: 'Zuzana', localService: true }, { lang: 'en-US', name: 'Samantha', localService: true }];
+  Object.defineProperty(window, 'SpeechSynthesisUtterance', { value: function (t) { this.text = t; }, configurable: true }); Object.defineProperty(window, 'speechSynthesis', { configurable: true, value: { getVoices: () => voices, cancel() { window.__said.push({ cancel: 1 }); }, speak(u) { window.__said.push({ text: u.text, lang: u.lang, rate: u.rate, vol: u.volume, pitch: u.pitch, voice: u.voice && u.voice.name }); setTimeout(() => u.onstart && u.onstart(), 0); setTimeout(() => u.onend && u.onend(), 30); } } }); };
 const spoken = p => p.evaluate(() => window.__said.filter(x => x.text && x.text.trim()));
 const clear = p => p.evaluate(() => { window.__said.length = 0; });
 
@@ -36,6 +36,19 @@ const clear = p => p.evaluate(() => { window.__said.length = 0; });
 
   /* 3. числа и знаки превращаются в слова */
   await p.evaluate(() => window.__umniki.A.home()); await start(p, 'numbers', 'mul'); await p.waitForTimeout(150); say = await spoken(p); ok(say.length >= 1 && !/[×=?]/.test(say[0].text.replace(/\?$/, '')) && /умножить|на/.test(say[0].text), 'знак × читается словами: «' + (say[0] || {}).text + '»');
+  await p.context().close();
+
+  /* 3б. голос и скорость выбираются в родительской зоне, речь идёт по предложениям с интонацией */
+  p = await mk({ id: 'a', name: 'Миша', age: 6, pet: '🐼', pets: ['🐼'] });
+  ok(await p.evaluate(() => window.Speech.pickVoice('ru').name) === 'Yuri (Enhanced)', 'по умолчанию выбирается улучшенный голос');
+  await p.evaluate(() => { const u = window.__umniki; u.unlockParent(); u.setR('parent'); u.render(); });
+  ok(await p.evaluate(() => document.querySelectorAll('.voices .vc').length === 2 && !!document.querySelector('[data-a=speakrate][data-m=fast]') && !!document.querySelector('[data-a=voicetest]')), 'в родительской зоне: список голосов, скорость и «Послушать»');
+  await clear(p); await p.tap('.voices .vc:nth-child(2)'); await p.waitForTimeout(100); say = await spoken(p);
+  ok(say.length >= 1 && say[0].voice === 'Milena' && (await p.evaluate(() => window.Speech.prefs().ru)) === 'Milena', 'выбор голоса сохраняется на устройстве и сразу проигрывается образец');
+  ok(say.length === 2 && say[0].pitch === 1.12 && say[1].pitch === 1.18 && /^Привет!/.test(say[0].text) && /\?$/.test(say[1].text), 'образец читается двумя предложениями: вопрос с интонацией вверх (pitch ' + say.map(x => x.pitch) + ')');
+  await clear(p); await p.tap('[data-a=speakrate][data-m=fast]'); await p.waitForTimeout(100); say = await spoken(p); ok(say.length >= 1 && say[0].rate > 1, 'скорость «Быстро» меняет темп речи ' + (say[0] || {}).rate);
+  await clear(p); await p.tap('[data-a=speakrate][data-m=slow]'); await p.waitForTimeout(100); say = await spoken(p); ok(say[say.length - 1].rate < .8, 'скорость «Медленно» ' + say[say.length - 1].rate);
+  ok(await p.evaluate(() => window.__umniki.S().speakRate === 'slow'), 'скорость хранится у ребёнка');
   await p.context().close();
 
   /* 4. девять лет: по кнопке, само молчит */

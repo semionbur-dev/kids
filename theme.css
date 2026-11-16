@@ -202,3 +202,5 @@ h1,h2,h3,.h1,.rt,.nm,.result h1{font-family:var(--disp);font-weight:700;letter-s
 .qrow{display:flex;align-items:flex-start;gap:10px}.qrow .qtext{flex:1}
 .spk{flex:none;width:52px;height:52px;border-radius:50%;border:var(--edge);background:var(--sun);box-shadow:var(--lift-s);font-size:24px;display:grid;place-items:center}
 .spk:active{transform:translateY(3px);box-shadow:0 0 0 var(--ink)}
+
+.chips.voices .vc{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
