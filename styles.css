@@ -272,3 +272,24 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;paddin
 .mini{display:inline-grid;grid-template-columns:repeat(var(--n),22px);gap:2px}.mini i{width:22px;height:22px;background:#fff;border:1px solid #cfd0e0;border-radius:4px}.mini i.on{background:var(--pri);border-color:var(--pri-d)}
 .mirrorv{display:flex;align-items:center;gap:10px}.mirrorv b{font-size:40px;border-left:4px solid #8d8fa8;padding-left:10px}
 .rowopt{display:inline-flex;gap:6px;font-size:28px}
+
+/* шахматная доска */
+.board{--cell:min(11.2vw,44px);display:grid;grid-template-columns:repeat(8,var(--cell));width:calc(var(--cell)*8);margin:6px auto;border:3px solid #5b4de0;border-radius:8px;overflow:hidden;box-shadow:0 4px 0 rgba(0,0,0,.12)}
+.sq{position:relative;width:var(--cell);height:var(--cell);display:grid;place-items:center;padding:0;border:0;font-size:calc(var(--cell)*.8);line-height:1}
+.sq.l{background:#efeaff}.sq.d{background:#b9aaf2}
+.sq.sel{box-shadow:inset 0 0 0 3px #ffc800;background:#fff3b0!important}
+.sq.hl{background:#ffe9a8!important}
+.sq.dest::after{content:'';position:absolute;width:30%;height:30%;border-radius:50%;background:rgba(40,160,0,.7)}
+.sq.dest.cap::after{width:84%;height:84%;background:none;border:4px solid rgba(255,75,75,.85)}
+.sq.star::before{content:'⭐';position:absolute;font-size:calc(var(--cell)*.62);z-index:0;opacity:.95}
+.sq.tgt{box-shadow:inset 0 0 0 3px #ff4b4b}
+.pc{position:relative;z-index:1;font-family:"Segoe UI Symbol","Noto Sans Symbols 2","Apple Symbols","DejaVu Sans",sans-serif}
+.pc.w{color:#fff;text-shadow:0 0 1px #000,0 0 2px #000,1px 1px 0 #333,-1px -1px 0 #333,1px -1px 0 #333,-1px 1px 0 #333}
+.pc.b{color:#2b2d42}
+.board.static{pointer-events:none}
+.chessintro .bi{font-size:44px}.chessintro p{font-size:17px;line-height:1.4;margin:10px 2px}
+.lessons{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px}
+.lcard{background:#fff;border:2px solid var(--line);border-bottom:5px solid #5c6b73;border-radius:16px;padding:10px 4px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:13px}
+.lcard .gl{font-size:34px;line-height:1.1;color:#2b2d42}.lcard .st{font-size:12px;min-height:16px}
+.pieces{display:flex;justify-content:space-around;background:#fff;border:2px solid var(--line);border-radius:16px;padding:8px 4px;margin-bottom:12px}
+.pieces div{display:flex;flex-direction:column;align-items:center;font-size:11px;color:var(--mut);gap:0}.pieces b{font-size:30px;color:#2b2d42;font-weight:400}
