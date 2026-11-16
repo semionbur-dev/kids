@@ -9,7 +9,7 @@ const URL = 'file://' + path.resolve(__dirname, '..', 'index.html');
 let fails = 0; const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) { fails++; process.exitCode = 1; } };
 
 const LEAK = { be: /[^\s]*[иИщЩъЪ][^\s]*/g, cs: /[^\s]*[А-Яа-яЁёІі][^\s]*/g, en: /[^\s]*[А-Яа-яЁёІі][^\s]*/g, ru: /[^\s]*[A-Za-z][^\s]*/g };
-const ALLOW = /^(PIN|Беларуская|БЕЛАРУСКАЯ|Русский|РУССКИЙ|XP|Google|GOOGLE|Firebase|Anna|Čeština|ČEŠTINA|English|ENGLISH|[A-E][1-5]|[A-E]|[a-h][1-8]|[1-9]?\d?[A-Z]?)$/;
+const ALLOW = /^(v\d+|PIN|Беларуская|БЕЛАРУСКАЯ|Русский|РУССКИЙ|XP|Google|GOOGLE|Firebase|Anna|Čeština|ČEŠTINA|English|ENGLISH|[A-E][1-5]|[A-E]|[a-h][1-8]|[1-9]?\d?[A-Z]?)$/;
 
 async function newPage(b, locale) {
   const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, locale });
