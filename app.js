@@ -1121,5 +1121,5 @@ up.setAttribute('aria-label', tt('Наверх', 'Угару', `Nahoru`, `Up`));
 up.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
 window.addEventListener('scroll', () => { up.hidden = !(window.scrollY > 400 && ['home', 'shop', 'awards'].includes(R)); }, { passive: true });
 if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(() => {});
-window.__umniki = { exportData, Avatar: window.Avatar, cloudErase, glossify, FAM: () => FAM, useKid, mergeFam, norm, setFam, famJSON, GENS, S: () => S, L: () => L, A, buildSet, skillPool, sigOf, Chess, mergeStates, defState, clone, SK, availSkills, render, save, setR: v => { R = v; }, unlockParent: () => { parentOK = true; }, clearPinLock: () => { pinLockUntil = 0; pinFails = 0; }, limitLeft };
+window.__umniki = { load, exportData, Avatar: window.Avatar, cloudErase, glossify, FAM: () => FAM, useKid, mergeFam, norm, setFam, famJSON, GENS, S: () => S, L: () => L, A, buildSet, skillPool, sigOf, Chess, mergeStates, defState, clone, SK, availSkills, render, save, setR: v => { R = v; }, unlockParent: () => { parentOK = true; }, clearPinLock: () => { pinLockUntil = 0; pinFails = 0; }, limitLeft };
 })();
