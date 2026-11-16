@@ -1,0 +1,111 @@
+'use strict';
+/* Навыки, адаптивная сложность (F6), дневной маршрут (F4), история занятий (для отчёта родителя, F9).
+   Чистая логика без DOM: работает и в браузере (window.Skills), и в Node (для автотестов). */
+(function (root) {
+const SKILLS = ['numbers', 'logic', 'space', 'attention', 'memory', 'chess'];
+const MAX_LVL = 5, WIN = 10, UP_AT = 0.8, DOWN_AT = 0.4, ROUTE_LEN = 4, HIST_DAYS = 120;
+
+/* какой генератор к какому навыку относится */
+const SKILL_OF = {
+  add: 'numbers', sub: 'numbers', mul: 'numbers', div: 'numbers', missing: 'numbers', word: 'numbers', units: 'numbers', time: 'numbers',
+  fshade: 'numbers', fof: 'numbers', fcmp: 'numbers', ncmp: 'numbers', ops: 'numbers', equiv: 'numbers',
+  seq: 'logic', machine: 'logic', odd: 'logic', pattern: 'logic', analogy: 'logic', riddle: 'logic', order: 'logic', legs: 'logic', balance: 'logic', sudoku: 'logic', magic: 'logic',
+  perim: 'space', area: 'space', shapes: 'space', robot: 'space', mirror: 'space',
+  count: 'attention', diff: 'attention', vanish: 'attention', same: 'attention', most: 'attention',
+  memseq: 'memory', mempos: 'memory', memnum: 'memory', memcount: 'memory', mempair: 'memory', memcolor: 'memory',
+  chess_move: 'chess', chess_capture: 'chess', chess_check: 'chess', chess_mate: 'chess', chess_win: 'chess', chess_save: 'chess',
+};
+
+/* ---------- даты ---------- */
+const pad = n => String(n).padStart(2, '0');
+const dayStr = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const parseDay = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+const addDays = (s, n) => { const d = parseDay(s); d.setDate(d.getDate() + n); return dayStr(d); };
+
+/* ---------- навыки и адаптивный уровень ---------- */
+const newSkill = () => ({ lvl: 1, win: [], n: 0, ok: 0 });
+const newSkills = () => Object.fromEntries(SKILLS.map(k => [k, newSkill()]));
+const fixSkills = sk => { sk = sk || {}; for (const k of SKILLS) { const x = sk[k] = Object.assign(newSkill(), sk[k]); x.lvl = Math.min(MAX_LVL, Math.max(1, x.lvl | 0)); if (!Array.isArray(x.win)) x.win = []; } return sk; };
+
+/* Результат ответа с первой попытки. Уровень оценивается блоками по 10 ответов на текущем уровне:
+   точность ≥ 80% → уровень выше; < 40% → мягко ниже; иначе остаёмся. После оценки блок начинается заново.
+   Возвращает 'up' | 'down' | null. */
+function recordResult(sk, firstOk) {
+  sk.n++; if (firstOk) sk.ok++;
+  sk.win.push(firstOk ? 1 : 0);
+  if (sk.win.length < WIN) return null;
+  const acc = sk.win.reduce((a, b) => a + b, 0) / WIN;
+  let ch = null;
+  if (acc >= UP_AT && sk.lvl < MAX_LVL) { sk.lvl++; ch = 'up'; }
+  else if (acc < DOWN_AT && sk.lvl > 1) { sk.lvl--; ch = 'down'; }
+  sk.win = [];
+  return ch;
+}
+/* звёзды за занятие по доле верных ответов с первой попытки */
+const starsFor = (ok, total) => (total <= 0 ? 3 : ok / total >= 0.85 ? 3 : ok / total >= 0.6 ? 2 : 1);
+
+/* ---------- история занятий ---------- */
+const emptyDay = () => ({ sec: 0, ses: 0, sk: {} });
+function addHist(hist, date, { sec = 0, ses = 0, skill, ok = 0, total = 0 } = {}) {
+  const d = hist[date] || (hist[date] = emptyDay());
+  d.sec += Math.round(sec); d.ses += ses;
+  if (skill && total) { const a = d.sk[skill] || (d.sk[skill] = [0, 0]); a[0] += ok; a[1] += total; }
+  return d;
+}
+function pruneHist(hist, today) {
+  const min = addDays(today, -HIST_DAYS);
+  for (const k of Object.keys(hist)) if (k < min) delete hist[k];
+  return hist;
+}
+const daysPlayedIn = (hist, endDate, n) => { let c = 0; for (let i = 0; i < n; i++) { const d = hist[addDays(endDate, -i)]; if (d && d.ses > 0) c++; } return c; };
+const daysPlayedTotal = hist => Object.values(hist).filter(d => d.ses > 0).length;
+const lastPlayed = (hist, skill) => { let best = ''; for (const [k, d] of Object.entries(hist)) if (d.sk && d.sk[skill] && d.sk[skill][1] > 0 && k > best) best = k; return best; };
+function mergeHist(a, b) {
+  const out = {};
+  for (const k of new Set([...Object.keys(a || {}), ...Object.keys(b || {})])) {
+    const x = (a || {})[k] || emptyDay(), y = (b || {})[k] || emptyDay(), m = emptyDay();
+    m.sec = Math.max(x.sec, y.sec); m.ses = Math.max(x.ses, y.ses);
+    for (const s of new Set([...Object.keys(x.sk || {}), ...Object.keys(y.sk || {})])) {
+      const p = (x.sk || {})[s] || [0, 0], q = (y.sk || {})[s] || [0, 0]; m.sk[s] = q[1] > p[1] ? q.slice() : p.slice(); }
+    out[k] = m;
+  }
+  return out;
+}
+function mergeSkills(a, b) {
+  a = fixSkills(a); b = fixSkills(b); const out = {};
+  for (const k of SKILLS) out[k] = JSON.parse(JSON.stringify(b[k].n > a[k].n ? b[k] : a[k]));   // берём копию с большим числом ответов
+  return out;
+}
+
+/* Недельная статистика для отчёта: 7 дней, оканчивающихся endDate, и 7 предыдущих. */
+function weekStats(hist, endDate) {
+  const range = off => Array.from({ length: 7 }, (_, i) => addDays(endDate, -(6 + off) + i));
+  const cur = range(0), prev = range(7);
+  const sum = days => {
+    const r = { sec: 0, ses: 0, played: 0, sk: {}, ok: 0, total: 0 };
+    for (const d of days) { const h = hist[d]; if (!h) continue; r.sec += h.sec; r.ses += h.ses; if (h.ses > 0) r.played++;
+      for (const [s, [o, t]] of Object.entries(h.sk || {})) { const a = r.sk[s] || (r.sk[s] = [0, 0]); a[0] += o; a[1] += t; r.ok += o; r.total += t; } }
+    return r;
+  };
+  return { days: cur.map(d => ({ date: d, sec: (hist[d] || {}).sec || 0, ses: (hist[d] || {}).ses || 0 })), cur: sum(cur), prev: sum(prev) };
+}
+
+/* ---------- дневной маршрут ---------- */
+/* 4 мини-игры по разным навыкам: сначала те, которые дольше всего не тренировались. avail — навыки, для которых есть задачи. */
+function pickRoute(hist, avail, rnd = Math.random) {
+  const pool = SKILLS.filter(s => avail.includes(s));
+  const key = s => (lastPlayed(hist, s) || '0000-00-00') + '|' + (0.5 + rnd() * 0.5).toFixed(3);   // «ни разу» = самая давняя дата
+  const picked = pool.map(s => [s, key(s)]).sort((a, b) => (a[1] < b[1] ? -1 : 1)).slice(0, Math.min(ROUTE_LEN, pool.length)).map(x => x[0]);
+  // чтобы маршрут не был «по порядку лестницы», слегка перемешиваем, но первым оставляем самый давний навык
+  const [first, ...rest] = picked; for (let i = rest.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [rest[i], rest[j]] = [rest[j], rest[i]]; }
+  return [first, ...rest].filter(Boolean);
+}
+function ensureRoute(S, today, avail, rnd) {
+  if (!S.route || S.route.date !== today) S.route = { date: today, skills: pickRoute(S.hist, avail, rnd), done: [], finished: false };
+  return S.route;
+}
+
+const api = { SKILLS, SKILL_OF, MAX_LVL, WIN, UP_AT, DOWN_AT, ROUTE_LEN, HIST_DAYS, dayStr, parseDay, addDays, newSkills, fixSkills, recordResult, starsFor,
+  addHist, pruneHist, daysPlayedIn, daysPlayedTotal, lastPlayed, mergeHist, mergeSkills, weekStats, pickRoute, ensureRoute };
+if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Skills = api;
+})(typeof window !== 'undefined' ? window : globalThis);

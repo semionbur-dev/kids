@@ -5,20 +5,20 @@ const P = pair => pair[LANGS.indexOf(getLang())];
 const LANG_NAMES = { be: 'Беларуская', ru: 'Русский', cs: 'Čeština', en: 'English' };
 const langOk = l => (LANGS.includes(l) ? l : 'ru');
 const plural = (n, f) => { const a = n % 100, b = n % 10; return a > 10 && a < 20 ? f[2] : b === 1 ? f[0] : b > 1 && b < 5 ? f[1] : f[2]; };
+const Skills = window.Skills;
 const $ = (s, r = document) => r.querySelector(s);
 
 /* ======================== Данные ======================== */
-const TOPICS = [
-  { id: 'arith', icon: '🔢', name: ['Арифметика', 'Арыфметыка', 'Aritmetika', 'Arithmetic'], color: '#ff5d73',
-    sub: ['Сложение, вычитание, умножение, деление', 'Складанне, адніманне, множанне, дзяленне', 'Sčítání, odčítání, násobení, dělení', 'Addition, subtraction, multiplication, division'] },
-  { id: 'frac', icon: '🍕', name: ['Дроби и сравнение', 'Дробы і параўнанне', 'Zlomky a porovnávání', 'Fractions and comparing'], color: '#ff9f1c',
-    sub: ['Дроби, сравнение, порядок действий', 'Дробы, параўнанне, парадак дзеянняў', 'Zlomky, porovnávání, pořadí operací', 'Fractions, comparing, order of operations'] },
-  { id: 'logic', icon: '🧠', name: ['Логика', 'Логіка', 'Logika', 'Logic'], color: '#7b6cff',
-    sub: ['Закономерности, загадки, рассуждения', 'Заканамернасці, загадкі, развагі', 'Pravidelnosti, hádanky, uvažování', 'Patterns, riddles, reasoning'] },
-  { id: 'geom', icon: '📐', name: ['Геометрия и головоломки', 'Геаметрыя і галаваломкі', 'Geometrie a hlavolamy', 'Geometry and puzzles'], color: '#17b8a6',
-    sub: ['Периметр, площадь, судоку, ребусы', 'Перыметр, плошча, судоку, рэбусы', 'Obvod, obsah, sudoku, rébusy', 'Perimeter, area, sudoku, puzzles'] },
-];
-const LESSONS = 10, QPL = 8, GOAL = 50, REGEN = 10 * 60 * 1000, HEART_PRICE = 15, HINT_PRICE = 3;
+const SK = {
+  numbers: { icon: '🔢', color: '#ff5d73', name: ['Числа', 'Лікі', 'Čísla', 'Numbers'], sub: ['Счёт, дроби, время', 'Лічэнне, дробы, час', 'Počty, zlomky, čas', 'Counting, fractions, time'] },
+  logic: { icon: '🧠', color: '#7b6cff', name: ['Логика', 'Логіка', 'Logika', 'Logic'], sub: ['Закономерности, загадки, судоку', 'Заканамернасці, загадкі, судоку', 'Pravidelnosti, hádanky, sudoku', 'Patterns, riddles, sudoku'] },
+  space: { icon: '📐', color: '#17b8a6', name: ['Пространство', 'Прастора', 'Prostor', 'Space'], sub: ['Фигуры, площадь, схемы', 'Фігуры, плошча, схемы', 'Tvary, obsah, schémata', 'Shapes, area, maps'] },
+  attention: { icon: '👀', color: '#ff9f1c', name: ['Внимание', 'Увага', 'Pozornost', 'Attention'], sub: ['Найди, сравни, сосчитай', 'Знайдзі, параўнай, падлічы', 'Najdi, porovnej, spočítej', 'Spot, compare, count'] },
+  memory: { icon: '🧩', color: '#3d9be9', name: ['Память', 'Памяць', 'Paměť', 'Memory'], sub: ['Запомни и вспомни', 'Запомні і ўспомні', 'Zapamatuj si a vzpomeň si', 'Remember and recall'] },
+  chess: { icon: '♟️', color: '#5c6b73', name: ['Шахматы', 'Шахматы', 'Šachy', 'Chess'], sub: ['Ходы, шах и мат', 'Хады, шах і мат', 'Tahy, šach a mat', 'Moves, check and mate'] },
+};
+const SKILLS = Skills.SKILLS;
+const QPL = 8, ROUTE_QPL = 4, HINT_PRICE = 3;
 
 const PETS = [
   { e: '🐱', n: ['Кот', 'Кот', 'Kocour', 'Cat'], p: 0 }, { e: '🐶', n: ['Пёс', 'Сабака', 'Pes', 'Dog'], p: 0 }, { e: '🐰', n: ['Зайка', 'Зайчык', 'Zajíček', 'Bunny'], p: 0 },
@@ -41,8 +41,8 @@ const ACH = [
   { id: 'perf1', i: '💯', t: ['Без ошибок', 'Без памылак', 'Bez chyby', 'Flawless'], d: ['Пройди урок без единой ошибки', 'Прайдзі ўрок без адной памылкі', 'Dokonči lekci bez jediné chyby', 'Finish a lesson without a single mistake'], ok: s => s.stat.perfect >= 1 },
   { id: 'perf5', i: '🏅', t: ['Мастер точности', 'Майстар дакладнасці', 'Mistr přesnosti', 'Master of accuracy'], d: ['5 уроков без ошибок', '5 урокаў без памылак', '5 lekcí bez chyby', '5 lessons without mistakes'], ok: s => s.stat.perfect >= 5 },
   { id: 'combo10', i: '⚡', t: ['Молния', 'Маланка', 'Blesk', 'Lightning'], d: ['10 правильных ответов подряд', '10 правільных адказаў запар', '10 správných odpovědí v řadě', '10 correct answers in a row'], ok: s => s.stat.bestCombo >= 10 },
-  { id: 'st3', i: '🔥', t: ['Огонёк', 'Агеньчык', 'Plamínek', 'Little flame'], d: ['Серия 3 дня подряд', 'Серыя 3 дні запар', 'Série 3 dny v řadě', 'A 3-day streak'], ok: s => s.bestStreak >= 3 },
-  { id: 'st7', i: '🌋', t: ['Неделя силы', 'Тыдзень сілы', 'Týden síly', 'Week of power'], d: ['Серия 7 дней подряд', 'Серыя 7 дзён запар', 'Série 7 dní v řadě', 'A 7-day streak'], ok: s => s.bestStreak >= 7 },
+  { id: 'st3', i: '🔥', t: ['Огонёк', 'Агеньчык', 'Plamínek', 'Little flame'], d: ['Занимайся 3 дня (не обязательно подряд)', 'Займайся 3 дні (не абавязкова запар)', 'Cvič 3 dny (ne nutně po sobě)', 'Practise on 3 days (not necessarily in a row)'], ok: s => daysTotal(s) >= 3 },
+  { id: 'st7', i: '🌋', t: ['Неделя силы', 'Тыдзень сілы', 'Týden síly', 'Week of power'], d: ['Занимайся 7 дней (не обязательно подряд)', 'Займайся 7 дзён (не абавязкова запар)', 'Cvič 7 dní (ne nutně po sobě)', 'Practise on 7 days (not necessarily in a row)'], ok: s => daysTotal(s) >= 7 },
   { id: 'c100', i: '🎯', t: ['Сотня', 'Сотня', 'Stovka', 'One hundred'], d: ['100 правильных ответов', '100 правільных адказаў', '100 správných odpovědí', '100 correct answers'], ok: s => s.stat.correct >= 100 },
   { id: 'c500', i: '🚀', t: ['Полёт нормальный', 'Палёт нармальны', 'Let se daří', 'Smooth flight'], d: ['500 правильных ответов', '500 правільных адказаў', '500 správných odpovědí', '500 correct answers'], ok: s => s.stat.correct >= 500 },
   { id: 'lv5', i: '⭐', t: ['Уровень 5', 'Узровень 5', 'Úroveň 5', 'Level 5'], d: ['Достигни 5 уровня', 'Дасягні 5 узроўню', 'Dosáhni 5. úrovně', 'Reach level 5'], ok: s => lvl(s.xp) >= 5 },
@@ -52,46 +52,40 @@ const ACH = [
   { id: 'hat', i: '🎩', t: ['Модник', 'Франт', 'Elegán', 'Dapper'], d: ['Купи первую шляпу', 'Купі першы галаўны ўбор', 'Kup si první klobouk', 'Buy your first hat'], ok: s => s.hats.length >= 1 },
   { id: 'star15', i: '✨', t: ['Звёздная пыль', 'Зорны пыл', 'Hvězdný prach', 'Stardust'], d: ['Собери 15 звёзд', 'Збяры 15 зорак', 'Získej 15 hvězd', 'Collect 15 stars'], ok: s => totalStars(s) >= 15 },
   { id: 'star60', i: '🌠', t: ['Звёздное небо', 'Зорнае неба', 'Hvězdná obloha', 'Starry sky'], d: ['Собери 60 звёзд', 'Збяры 60 зорак', 'Získej 60 hvězd', 'Collect 60 stars'], ok: s => totalStars(s) >= 60 },
-  { id: 'topic', i: '🏆', t: ['Знаток темы', 'Знаўца тэмы', 'Znalec tématu', 'Topic expert'], d: ['Пройди все 10 уроков одной темы', 'Прайдзі ўсе 10 урокаў адной тэмы', 'Dokonči všech 10 lekcí jednoho tématu', 'Complete all 10 lessons of one topic'], ok: s => TOPICS.some(t => doneCount(s, t.id) >= LESSONS) },
-  { id: 'all', i: '👑', t: ['Чемпион', 'Чэмпіён', 'Šampion', 'Champion'], d: ['Пройди все уроки всех тем', 'Прайдзі ўсе ўрокі ўсіх тэм', 'Dokonči všechny lekce všech témat', 'Complete all lessons of all topics'], ok: s => TOPICS.every(t => doneCount(s, t.id) >= LESSONS) },
+  { id: 'sk3', i: '📈', t: ['Растём', 'Расцём', 'Rosteme', 'Growing'], d: ['Подними любой навык до 3 уровня', 'Падніми любы навык да 3 узроўню', 'Zvedni jakoukoli dovednost na úroveň 3', 'Raise any skill to level 3'], ok: s => SKILLS.some(k => s.skills[k].lvl >= 3) },
+  { id: 'allsk3', i: '🎖️', t: ['Все навыки', 'Усе навыкі', 'Všechny dovednosti', 'All-rounder'], d: ['Все доступные навыки не ниже 3 уровня', 'Усе даступныя навыкі не ніжэй за 3 узровень', 'Všechny dostupné dovednosti alespoň na úrovni 3', 'All available skills at level 3 or higher'], ok: s => availSkills().every(k => s.skills[k].lvl >= 3) },
+  { id: 'route1', i: '🗺️', t: ['Первый маршрут', 'Першы маршрут', 'První trasa', 'First route'], d: ['Пройди дневной маршрут', 'Прайдзі дзённы маршрут', 'Dokonči denní trasu', 'Finish a daily route'], ok: s => s.stat.routes >= 1 },
+  { id: 'route7', i: '🧭', t: ['Путешественник', 'Падарожнік', 'Cestovatel', 'Explorer'], d: ['Пройди 7 дневных маршрутов', 'Прайдзі 7 дзённых маршрутаў', 'Dokonči 7 denních tras', 'Finish 7 daily routes'], ok: s => s.stat.routes >= 7 },
 ];
 
 /* ======================== Состояние ======================== */
 const KEY = 'umniki.v1';
-const defState = () => ({ name: '', pet: '', pets: [], hat: '', hats: [], coins: 0, xp: 0, streak: 0, bestStreak: 0, lastDay: '',
-  hearts: 5, heartAt: Date.now(), done: { arith: [], frac: [], logic: [], geom: [] }, ach: {},
-  stat: { lessons: 0, correct: 0, perfect: 0, bestCombo: 0 }, todayDate: '', todayXp: 0, goalPaid: '', sound: true, recent: [], ts: 0, lang: (/^(be|cs|en|ru)/i.exec(navigator.language || '') || ['ru'])[0].toLowerCase() });
+const defState = () => ({ name: '', pet: '', pets: [], hat: '', hats: [], coins: 0, xp: 0, ach: {},
+  stat: { lessons: 0, correct: 0, perfect: 0, bestCombo: 0, routes: 0 }, starsTotal: 0, skills: Skills.newSkills(), hist: {}, route: null,
+  sound: true, recent: [], ts: 0, lang: (/^(be|cs|en|ru)/i.exec(navigator.language || '') || ['ru'])[0].toLowerCase() });
 let S;
+const OLD_KEYS = ['hearts', 'heartAt', 'streak', 'bestStreak', 'lastDay', 'todayDate', 'todayXp', 'goalPaid'];
 function load() {
   let raw = null; try { raw = JSON.parse(localStorage.getItem(KEY)); } catch (e) {}
   S = Object.assign(defState(), raw || {});
-  S.stat = Object.assign(defState().stat, S.stat); S.done = Object.assign(defState().done, S.done);
+  S.stat = Object.assign(defState().stat, S.stat);
+  if (S.starsTotal === undefined || (raw && raw.done && !raw.starsTotal)) {   // перенос звёзд из старых «уроков»
+    S.starsTotal = Math.max(S.starsTotal || 0, Object.values((raw && raw.done) || {}).reduce((a, arr) => a + (arr || []).reduce((x, y) => x + (y || 0), 0), 0)); }
+  S.skills = Skills.fixSkills(S.skills); if (!S.hist || typeof S.hist !== 'object') S.hist = {};
+  for (const k of [...OLD_KEYS, 'done']) delete S[k];
   S.lang = langOk(S.lang);
   setLang(S.lang); document.documentElement.lang = S.lang; document.title = tt('Умники', 'Разумнікі', `Chytráci`, `Smart Kids`);
 }
 function save(o) { S.ts = Date.now(); try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} if (!(o && o.nopush)) pushSoon(); }
 
-const pad = n => String(n).padStart(2, '0');
-const dayStr = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-const today = () => dayStr(new Date());
-const yesterday = () => { const d = new Date(); d.setDate(d.getDate() - 1); return dayStr(d); };
+const today = () => Skills.dayStr(new Date());
 const lvl = xp => Math.floor(Math.sqrt(xp / 30)) + 1;
 const lvlStart = n => 30 * (n - 1) ** 2;
-const totalStars = s => Object.values(s.done).reduce((a, arr) => a + arr.reduce((x, y) => x + (y || 0), 0), 0);
-const doneCount = (s, t) => s.done[t].filter(x => x > 0).length;
-const curStreak = () => (S.lastDay === today() || S.lastDay === yesterday() ? S.streak : 0);
-function touchDay() { if (S.todayDate !== today()) { S.todayDate = today(); S.todayXp = 0; } }
-function touchStreak() {
-  if (S.lastDay === today()) return;
-  S.streak = S.lastDay === yesterday() ? S.streak + 1 : 1; S.lastDay = today(); S.bestStreak = Math.max(S.bestStreak, S.streak);
-}
-function syncHearts() {
-  if (S.hearts >= 5) { S.hearts = 5; S.heartAt = Date.now(); return; }
-  const n = Math.floor((Date.now() - S.heartAt) / REGEN);
-  if (n > 0) { S.hearts = Math.min(5, S.hearts + n); S.heartAt += n * REGEN; if (S.hearts >= 5) S.heartAt = Date.now(); }
-}
-function loseHeart() { if (S.hearts >= 5) S.heartAt = Date.now(); S.hearts = Math.max(0, S.hearts - 1); }
-const heartTimer = () => { const ms = Math.max(0, S.heartAt + REGEN - Date.now()), s = Math.ceil(ms / 1000); return `${Math.floor(s / 60)}:${pad(s % 60)}`; };
+const totalStars = s => s.starsTotal || 0;
+const daysTotal = s => Skills.daysPlayedTotal(s.hist);
+const availSkills = () => SKILLS.filter(k => GENS.some(g => Skills.SKILL_OF[g.id] === k));
+const weekCount = () => Skills.daysPlayedIn(S.hist, today(), 7);
+const pad = n => String(n).padStart(2, '0');
 
 /* ======================== Звук и эффекты ======================== */
 let ac = null;
@@ -130,10 +124,10 @@ function modal({ icon = '', title = '', text = '', btns = [] }) {
 }
 const closeModal = () => { const m = $('#modal'); m.innerHTML = ''; m._btns = null; };
 
-/* ======================== Построение уроков ======================== */
-function makeQ(g, d) { const q = g.make(d); q.topic = g.topic; q.gid = g.id; q.d = d; return q; }
+/* ======================== Построение занятий ======================== */
+function makeQ(g, d) { const q = g.make(d); q.topic = g.topic; q.skill = Skills.SKILL_OF[g.id]; q.gid = g.id; q.d = d; return q; }
 const sigOf = q => q.gid + '|' + (q.key || q.text + (q.visual || ''));
-/* Новая задача из генератора g, которой ещё не было в этом уроке и (по возможности) в недавней истории.
+/* Новая задача из генератора g, которой ещё не было в этом занятии и (по возможности) в недавней истории.
    Если свежей не нашлось — возвращает ту, что видели давнее всего. */
 function freshQ(g, d, seen) {
   const recent = S.recent || []; let best = null;
@@ -146,9 +140,9 @@ function freshQ(g, d, seen) {
   }
   return best;
 }
-function buildSet(pool, d) {
+function buildSet(pool, d, n) {
   const out = [], seen = new Set(); let bag = [], last = null;
-  for (let i = 0; i < QPL; i++) {
+  for (let i = 0; i < n; i++) {
     if (!bag.length) bag = shuffle(pool);
     let k = bag.findIndex(x => x !== last); if (k < 0) k = 0;
     const primary = bag.splice(k, 1)[0];
@@ -156,7 +150,7 @@ function buildSet(pool, d) {
     const cands = [primary, ...shuffle(pool.filter(x => x !== primary && x !== last))];
     let chosen = null, stale = null;
     for (const g of cands) {
-      const r = freshQ(g, Math.max((i < 2 && d > 1) ? d - 1 : d, g.minD), seen);
+      const r = freshQ(g, Math.max((i < 2 && d > 1 && n >= 6) ? d - 1 : d, g.minD), seen);
       if (!r) continue;
       if (r.fresh) { chosen = r.q; break; }
       if (!stale || r.age < stale.age) stale = r;
@@ -166,12 +160,7 @@ function buildSet(pool, d) {
   }
   return out;
 }
-const lessonD = idx => Math.min(5, 1 + Math.floor(idx / 2));
-const buildLesson = (topic, idx) => buildSet(GENS.filter(g => g.topic === topic && g.minD <= lessonD(idx)), lessonD(idx));
-function buildMixed() {
-  const n = TOPICS.reduce((a, t) => a + doneCount(S, t.id), 0), d = Math.min(5, 1 + Math.floor(n / 6));
-  return buildSet(GENS.filter(g => g.minD <= d), d);
-}
+const skillPool = (skill, lv) => GENS.filter(g => Skills.SKILL_OF[g.id] === skill && g.minD <= lv);
 
 /* ======================== Маршрутизация и отрисовка ======================== */
 let R = 'home', L = null, RES = null;
@@ -180,17 +169,15 @@ const mascot = (cls = '', bounce = false) => `<div class="mascot ${cls}${bounce 
 
 function topBar() {
   return `<div class="top">
-    <button class="pill fire" data-a="streakinfo">🔥 <b>${curStreak()}</b></button>
+    <button class="pill fire" data-a="weekinfo">🔥 <b>${weekCount()}</b><small>/7</small></button>
     <button class="pill lv" data-a="goto" data-t="awards">⭐ <b>${lvl(S.xp)}</b></button>
     <button class="pill coin" data-a="goto" data-t="shop">🪙 <b id="coins">${S.coins}</b></button>
-    <button class="pill hp" data-a="heartinfo">❤️ <b id="hearts">${S.hearts}</b>${S.hearts < 5 ? `<small id="htimer">${heartTimer()}</small>` : ''}</button>
   </div>`;
 }
 const tabs = on => `<nav class="tabs">${[['home', '🏠', tt('Учёба', 'Навучанне', `Učení`, `Learn`)], ['shop', '🎁', tt('Магазин', 'Крама', `Obchod`, `Shop`)], ['awards', '🏆', tt('Награды', 'Узнагароды', `Odměny`, `Awards`)]]
   .map(([id, ic, n]) => `<button class="tab${on === id ? ' on' : ''}" data-a="goto" data-t="${id}"><span>${ic}</span>${n}</button>`).join('')}</nav>`;
 
 function render() {
-  syncHearts(); touchDay();
   if (!S.name) R = 'onboard';
   if (R === 'profile' || R === 'onboard') prefetchFb();
   ({ onboard: rOnboard, home: rHome, shop: rShop, awards: rAwards, profile: rProfile, lesson: rLesson, result: rResult })[R]();
@@ -210,7 +197,7 @@ function rOnboard() {
     <div style="margin-top:auto"><button class="btn grn" data-a="obstart">${tt('Поехали!', 'Паехалі!', `Jdeme na to!`, `Let's go!`)}</button></div></div>`;
 }
 
-/* ---------- главная ---------- */
+/* ---------- главная: маршрут дня и карта навыков ---------- */
 const PHRASES = {
   ru: ['Давай решим пару задач! Поехали! 🚀', 'Каждая решённая задача делает тебя умнее! 🧠', 'Сегодня отличный день для логики! ☀️',
     'Ошибки — это ступеньки к успеху! 🪜', 'Давай заработаем ещё звёздочек! ⭐', 'Попробуй задачу посложнее — у тебя получится! 💪'],
@@ -225,22 +212,27 @@ const newPhrase = () => pick(PHRASES[getLang()]);
 let phrase = newPhrase();
 function rHome() {
   const L0 = lvl(S.xp), a = lvlStart(L0), b = lvlStart(L0 + 1), pr = Math.min(100, Math.round((S.xp - a) / (b - a) * 100));
-  const gp = Math.min(100, Math.round(S.todayXp / GOAL * 100));
+  const had = S.route && S.route.date === today(), r = Skills.ensureRoute(S, today(), availSkills());
+  if (!had) save({ nopush: true });
+  const nx = r.skills.findIndex(k => !r.done.includes(k));
+  const chips = r.skills.map((k, i) => { const dn = r.done.includes(k); return `<span class="rchip${dn ? ' done' : ''}${i === nx ? ' cur' : ''}" style="--c:${SK[k].color}">${SK[k].icon}${dn ? '<i>✓</i>' : ''}</span>`; }).join('<span class="rline"></span>');
+  const routeCard = r.finished
+    ? `<div class="route fin"><div class="rt">${tt('✅ На сегодня всё!', '✅ На сёння ўсё!', `✅ Pro dnešek hotovo!`, `✅ That's all for today!`)}</div><div class="rchips">${chips}</div>
+        <div class="rs">${tt('Приходи завтра — будет новый маршрут 🌙', 'Прыходзь заўтра — будзе новы маршрут 🌙', `Přijď zítra – čeká tě nová trasa 🌙`, `Come back tomorrow for a new route 🌙`)}</div></div>`
+    : `<div class="route"><div class="rt">🌟 ${tt('Маршрут на сегодня', 'Маршрут на сёння', `Dnešní trasa`, `Today's route`)}</div>
+        <div class="rs">${tt('Четыре мини-игры, около 10–15 минут', 'Чатыры міні-гульні, каля 10–15 хвілін', `Čtyři minihry, asi 10–15 minut`, `Four mini-games, about 10–15 minutes`)}</div>
+        <div class="rchips">${chips}</div>
+        <button class="btn grn" data-a="route">${r.done.length ? `${tt('Дальше', 'Далей', `Dál`, `Next`)}: ${SK[r.skills[nx]].icon} ${P(SK[r.skills[nx]].name)}` : tt('Начать', 'Пачаць', `Začít`, `Start`)}</button></div>`;
+  const cards = availSkills().map(k => { const sk = S.skills[k];
+    return `<button class="skc" style="--c:${SK[k].color}" data-a="skill" data-s="${k}"><div class="ico">${SK[k].icon}</div><b>${P(SK[k].name)}</b><small>${P(SK[k].sub)}</small>
+      <div class="pips" aria-label="${tt('Уровень', 'Узровень', `Úroveň`, `Level`)} ${sk.lvl}">${[1, 2, 3, 4, 5].map(i => `<i class="${i <= sk.lvl ? 'on' : ''}"></i>`).join('')}</div></button>`; }).join('');
   root.innerHTML = topBar() + `<div class="page">
     <div class="hero tap" data-a="profile" role="button">${mascot()}<div class="bubble">${tt('Привет', 'Прывітанне', `Ahoj`, `Hello`)}, <b>${esc(S.name)}</b>!<br><span style="font-weight:700;font-size:14px">${phrase}</span>
       <div class="bar xp xpbar"><i style="width:${pr}%"></i></div><div class="small"><span>${tt('Уровень', 'Узровень', `Úroveň`, `Level`)} ${L0}</span><span>${S.xp - a} / ${b - a} XP</span></div></div><span class="chev">›</span></div>
-    <div class="goal"><div class="row"><span>🎯 ${tt('Цель на сегодня', 'Мэта на сёння', `Dnešní cíl`, `Today's goal`)}</span><span>${Math.min(S.todayXp, GOAL)} / ${GOAL} XP ${S.todayXp >= GOAL ? '✅' : ''}</span></div>
-      <div class="bar"><i style="width:${gp}%"></i></div></div>
-    <button class="btn yel" data-a="mixed">🎲 ${tt('Быстрая тренировка', 'Хуткая трэніроўка', `Rychlý trénink`, `Quick practice`)}</button>
-    ${TOPICS.map(t => {
-      const arr = S.done[t.id], dc = doneCount(S, t.id);
-      return `<section class="topic" style="--c:${t.color}"><h2>${t.icon} ${P(t.name)}</h2><div class="sub">${P(t.sub)} · ${tt('пройдено', 'пройдзена', `splněno`, `completed`)} ${dc}/${LESSONS}</div><div class="path">` +
-        Array.from({ length: LESSONS }, (_, i) => {
-          const st = arr[i] || 0, open = i === 0 || arr[i - 1] > 0, cur = open && !st;
-          const stars = st ? '⭐'.repeat(st) : '';
-          return `<button class="node${open ? '' : ' lock'}${cur ? ' cur' : ''}${i % 2 && i === LESSONS - 1 ? '' : ''}" data-a="${open ? 'lesson' : 'locked'}" data-t="${t.id}" data-i="${i}">${open ? (st ? '✓' : i + 1) : '🔒'}<span class="st">${stars}</span></button>`;
-        }).join('') + '</div></section>';
-    }).join('')}</div>` + tabs('home');
+    ${routeCard}
+    <div class="sect">${tt('Карта навыков', 'Карта навыкаў', `Mapa dovedností`, `Skills map`)}</div>
+    ${r.finished ? `<div class="rs" style="margin:-4px 2px 8px">${tt('Хочется ещё? Выбери навык.', 'Хочацца яшчэ? Абяры навык.', `Chceš ještě? Vyber si dovednost.`, `Want more? Pick a skill.`)}</div>` : ''}
+    <div class="skgrid">${cards}</div></div>` + tabs('home');
 }
 
 /* ---------- магазин ---------- */
@@ -252,12 +244,9 @@ function rShop() {
         : `<button class="btn yel" data-a="buy" data-k="${kind}" data-e="${it.e}">🪙 ${it.p}</button>`) + '</div>';
   };
   root.innerHTML = topBar() + `<div class="page"><div class="h1">${tt('Магазин', 'Крама', `Obchod`, `Shop`)}</div>
-    <div class="hero">${mascot()}<div class="bubble">${tt('Зарабатывай монеты на уроках и открывай новых друзей и наряды!', 'Зарабляй манеты на ўроках і адкрывай новых сяброў і ўборы!', `Získávej mince v lekcích a odemykej nové kamarády a oblečení!`, `Earn coins in lessons and unlock new friends and outfits!`)}</div></div>
+    <div class="hero">${mascot()}<div class="bubble">${tt('Зарабатывай монеты на занятиях и открывай новых друзей и наряды!', 'Зарабляй манеты на занятках і адкрывай новых сяброў і ўборы!', `Získávej mince při cvičení a odemykej nové kamarády a oblečení!`, `Earn coins while practising and unlock new friends and outfits!`)}</div></div>
     <div class="sect">${tt('Друзья', 'Сябры', `Kamarádi`, `Friends`)}</div><div class="grid">${PETS.map(p => card(p, 'pet')).join('')}</div>
-    <div class="sect">${tt('Шляпы', 'Галаўныя ўборы', `Klobouky`, `Hats`)}</div><div class="grid">${HATS.map(h => card(h, 'hat')).join('')}</div>
-    <div class="sect">${tt('Прочее', 'Іншае', `Ostatní`, `Other`)}</div>
-    <div class="card" style="flex-direction:row;justify-content:space-between;padding:12px 14px"><div style="text-align:left"><div class="ttl" style="font-size:16px">❤️ ${tt('Сердечко', 'Сэрцайка', `Srdíčko`, `Heart`)}</div><small>${tt('Восстанови одну жизнь', 'Аднаві адно жыццё', `Obnov jeden život`, `Restore one life`)}</small></div>
-      <button class="btn yel" style="width:auto;padding:9px 14px" data-a="buyheart">🪙 ${HEART_PRICE}</button></div></div>` + tabs('shop');
+    <div class="sect">${tt('Шляпы', 'Галаўныя ўборы', `Klobouky`, `Hats`)}</div><div class="grid">${HATS.map(h => card(h, 'hat')).join('')}</div></div>` + tabs('shop');
 }
 
 /* ---------- награды ---------- */
@@ -266,7 +255,7 @@ function rAwards() {
   root.innerHTML = topBar() + `<div class="page"><div class="h1">${tt('Награды', 'Узнагароды', `Odměny`, `Awards`)}</div>
     <div class="prof tap" data-a="profile" role="button">${mascot('')}<div><div class="nm">${esc(S.name)}</div><div class="lv">${tt('Уровень', 'Узровень', `Úroveň`, `Level`)} ${L0} · ${S.xp} XP</div></div><span class="chev">›</span></div>
     <div class="stats"><div><b>${totalStars(S)} ⭐</b>${tt('звёзд собрано', 'зорак сабрана', `získaných hvězd`, `stars collected`)}</div><div><b>${S.stat.correct}</b>${tt('верных ответов', 'правільных адказаў', `správných odpovědí`, `correct answers`)}</div>
-      <div><b>${S.stat.lessons}</b>${tt('уроков пройдено', 'урокаў пройдзена', `dokončených lekcí`, `lessons completed`)}</div><div><b>${S.bestStreak} 🔥</b>${tt('лучшая серия', 'лепшая серыя', `nejdelší série`, `best streak`)}</div></div>
+      <div><b>${S.stat.lessons}</b>${tt('занятий пройдено', 'заняткаў пройдзена', `dokončených tréninků`, `sessions completed`)}</div><div><b>${daysTotal(S)} 🔥</b>${tt('дней занятий', 'дзён заняткаў', `dnů cvičení`, `days practised`)}</div></div>
     <div class="sect">${tt('Достижения', 'Дасягненні', `Úspěchy`, `Achievements`)} · ${got}/${ACH.length}</div>
     <div class="grid">${ACH.map(a => `<div class="card${S.ach[a.id] ? ' on' : ' lock'}"><div class="em">${a.i}</div><div class="ttl">${P(a.t)}</div><small>${P(a.d)}</small></div>`).join('')}</div></div>` + tabs('awards');
 }
@@ -289,35 +278,38 @@ function rProfile() {
     <div class="row2"><button class="btn ghost sm" data-a="rename">✏️ ${tt('Сменить имя', 'Змяніць імя', `Změnit jméno`, `Change name`)}</button><button class="btn ghost sm" data-a="reset">🗑 ${tt('Начать заново', 'Пачаць зноў', `Začít znovu`, `Start over`)}</button></div></div>` + tabs('');
 }
 
-/* ---------- урок ---------- */
-function startLesson(topic, idx, opts = {}) {
+/* ---------- занятие ---------- */
+function startSession(skill, opts = {}) {
   document.querySelectorAll('.confetti').forEach(e => e.remove());
-  syncHearts();
-  if (!opts.practice && S.hearts <= 0) return noHearts(() => startLesson(topic, idx, opts), topic, idx);
-  const qs = opts.mixed ? buildMixed() : buildLesson(topic, idx);
-  L = { topic, idx, mixed: !!opts.mixed, practice: !!opts.practice, queue: qs.slice(), total: qs.length, resolved: 0, added: 0,
-    firstOK: 0, mistakes: 0, combo: 0, bestCombo: 0, answered: false, ok: false, sel: null, input: '', hint: false, startHearts: S.hearts };
+  if (L) clearTimeout(L.timer);
+  const lv = S.skills[skill].lvl, n = opts.n || QPL;
+  const qs = buildSet(skillPool(skill, lv), lv, n);
+  L = { skill, route: !!opts.route, queue: qs.slice(), total: qs.length, resolved: 0, added: 0, firstOK: 0, counted: 0, mistakes: 0, combo: 0, bestCombo: 0,
+    answered: false, ok: false, sel: null, input: '', hint: false, studied: false, sec: 0, lastT: Date.now(), timer: null };
   R = 'lesson'; render();
 }
-function noHearts(again, topic, idx) {
-  modal({ icon: '💔', title: tt('Сердечки закончились', 'Сэрцайкі скончыліся', `Došla srdíčka`, `Out of hearts`), text: tt(`Новое сердечко появится через <b>${heartTimer()}</b>. Можно купить сердечко за ${HEART_PRICE} 🪙 или потренироваться без сердечек (меньше XP).`, `Новае сэрцайка з’явіцца праз <b>${heartTimer()}</b>. Можна купіць сэрцайка за ${HEART_PRICE} 🪙 або папрактыкавацца без сэрцайкаў (менш XP).`, `Nové srdíčko přibude za <b>${heartTimer()}</b>. Můžeš si srdíčko koupit za ${HEART_PRICE} 🪙 nebo trénovat bez srdíček (méně XP).`, `A new heart appears in <b>${heartTimer()}</b>. You can buy a heart for ${HEART_PRICE} 🪙 or practise without hearts (less XP).`),
-    btns: [{ t: tt(`Купить ❤️ за ${HEART_PRICE}`, `Купіць ❤️ за ${HEART_PRICE}`, `Koupit ❤️ za ${HEART_PRICE}`, `Buy ❤️ for ${HEART_PRICE}`), c: 'yel', f: () => { if (buyHeart()) again(); } },
-      { t: tt('Тренировка без сердечек', 'Трэніроўка без сэрцайкаў', `Trénink bez srdíček`, `Practice without hearts`), c: 'blu', f: () => startLesson(topic, idx, { practice: true, mixed: topic === undefined }) },
-      { t: tt('Подожду', 'Пачакаю', `Počkám`, `I'll wait`), c: 'ghost', f: () => {} }] });
-}
-function buyHeart() {
-  if (S.hearts >= 5) { toast(tt('Сердечки уже полные! ❤️', 'Сэрцайкі ўжо поўныя! ❤️', `Srdíčka jsou už plná! ❤️`, `Hearts are already full! ❤️`)); return false; }
-  if (S.coins < HEART_PRICE) { toast(tt(`Не хватает монет: нужно ${HEART_PRICE} 🪙`, `Не хапае манет: трэба ${HEART_PRICE} 🪙`, `Nemáš dost mincí: potřebuješ ${HEART_PRICE} 🪙`, `Not enough coins: you need ${HEART_PRICE} 🪙`)); return false; }
-  S.coins -= HEART_PRICE; S.hearts++; if (S.hearts >= 5) S.heartAt = Date.now(); save(); sfx.coin(); toast(tt('❤️ Сердечко куплено!', '❤️ Сэрцайка куплена!', `❤️ Srdíčko koupeno!`, `❤️ Heart bought!`)); if (R !== 'lesson') render(); return true;
-}
+function tickTime() { if (!L) return; const now = Date.now(); L.sec += Math.min(45, (now - L.lastT) / 1000); L.lastT = now; }   // время без простоя (> 45 с не считаем)
 
 const plain = h => String(h).replace(/<[^>]*>/g, '');
-const qHTML = q => {
-  const T = TOPICS.find(t => t.id === q.topic);
-  return `<span class="tag" style="--c:${T.color}">${T.icon} ${P(T.name)}</span><div class="qtext">${q.text}</div>${q.visual ? `<div class="visual">${q.visual}</div>` : ''}`;
-};
+const qTag = q => { const k = SK[q.skill]; return `<span class="tag" style="--c:${k.color}">${k.icon} ${P(k.name)}</span>`; };
+const qHTML = q => `${qTag(q)}<div class="qtext">${q.text}</div>${q.visual ? `<div class="visual">${q.visual}</div>` : ''}`;
+function lHead() {
+  const prog = Math.round(L.resolved / (L.total + L.added) * 100), r = S.route;
+  const right = L.route && r ? `${Math.min(r.done.length + 1, r.skills.length)}/${r.skills.length}` : SK[L.skill].icon;
+  return `<div class="lhead"><button class="x" data-a="quit">✕</button><div class="bar"><i style="width:${prog}%"></i></div><div class="hp">${right}</div></div>`;
+}
+/* экран «запомни»: показываем материал на несколько секунд, потом прячем (память) */
+function rStudy(q) {
+  clearTimeout(L.timer);
+  const secs = q.study.secs;
+  root.innerHTML = `<div class="lesson">${lHead()}<div class="qwrap">${qTag(q)}<div class="qtext">${q.study.text}</div>
+    <div class="visual studyv">${q.study.html}</div><div class="cd"><i style="animation-duration:${secs}s"></i></div></div>
+    <div class="lfoot"><button class="btn grn" data-a="ready">${tt('Готов', 'Гатова', `Hotovo`, `Ready`)}</button></div></div>`;
+  L.timer = setTimeout(() => { if (L && L.queue[0] === q && !L.studied && !L.answered) { L.studied = true; rLesson(); } }, secs * 1000);
+}
 function rLesson() {
-  const q = L.queue[0], prog = Math.round(L.resolved / (L.total + L.added) * 100);
+  const q = L.queue[0];
+  if (q.study && !L.studied && !L.answered) return rStudy(q);
   let ans = '';
   if (q.type === 'choice') {
     const cls = q.wide || q.choices.length === 3 && q.choices.every(c => plain(c.h).length <= 2) ? 'c3' : (q.choices.some(c => plain(c.h).length > 22) ? 'c1' : '');
@@ -340,70 +332,83 @@ function rLesson() {
     const can = q.type === 'choice' ? L.sel !== null : L.input !== '';
     foot = `<div class="lfoot"><button class="btn ghost" data-a="hint">💡 ${HINT_PRICE}🪙</button><button class="btn grn" data-a="check" ${can ? '' : 'disabled'}>${tt('Проверить', 'Праверыць', `Zkontrolovat`, `Check`)}</button></div>`;
   }
-  root.innerHTML = `<div class="lesson"><div class="lhead"><button class="x" data-a="quit">✕</button><div class="bar"><i style="width:${prog}%"></i></div>
-    <div class="hp">${L.practice ? '∞' : '❤️ ' + S.hearts}</div></div>
-    <div class="qwrap">${qHTML(q)}${L.hint ? `<div class="hintbox">💡 ${esc(q.hint)}</div>` : ''}${ans}</div>${foot}</div>`;
+  root.innerHTML = `<div class="lesson">${lHead()}<div class="qwrap">${qHTML(q)}${L.hint ? `<div class="hintbox">💡 ${esc(q.hint)}</div>` : ''}${ans}</div>${foot}</div>`;
 }
 function check() {
   const q = L.queue[0]; if (L.answered) return;
+  tickTime();
   let ok;
   if (q.type === 'choice') ok = q.choices[L.sel].v === q.answer; else ok = parseInt(L.input, 10) === q.answer;
   L.answered = true; L.ok = ok;
   (S.recent = S.recent || []).push(sigOf(q)); if (S.recent.length > 150) S.recent.shift();
-  if (ok) {
-    if (!q.retry) L.firstOK++;
-    L.combo++; L.bestCombo = Math.max(L.bestCombo, L.combo); L.resolved++; S.stat.correct++; sfx.ok();
-  } else {
-    L.combo = 0; if (!q.retry) { L.mistakes++; } if (!L.practice) loseHeart(); sfx.no();
+  if (!q.retry) {   // для адаптивной сложности и отчёта учитывается только первая попытка
+    L.counted++; if (ok) L.firstOK++; else L.mistakes++;
+    const ch = Skills.recordResult(S.skills[L.skill], ok);
+    Skills.addHist(S.hist, today(), { skill: L.skill, ok: ok ? 1 : 0, total: 1 });
+    if (ch === 'up') toast(tt(`🚀 Навык «${P(SK[L.skill].name)}»: уровень ${S.skills[L.skill].lvl}!`, `🚀 Навык «${P(SK[L.skill].name)}»: узровень ${S.skills[L.skill].lvl}!`, `🚀 Dovednost „${P(SK[L.skill].name)}“: úroveň ${S.skills[L.skill].lvl}!`, `🚀 Skill "${P(SK[L.skill].name)}": level ${S.skills[L.skill].lvl}!`));
+  }
+  if (ok) { L.combo++; L.bestCombo = Math.max(L.bestCombo, L.combo); L.resolved++; S.stat.correct++; sfx.ok(); }
+  else {
+    L.combo = 0; sfx.no();   // ошибка ничего не отнимает: ни сердечек, ни звёзд за прошлое
     if (!q.retry) { const g = GENS.find(x => x.id === q.gid), nq = (freshQ(g, q.d, new Set([sigOf(q)])) || { q: makeQ(g, q.d) }).q; nq.retry = true; L.queue.push(nq); L.added++; }
-    else L.resolved++;   // второй промах по той же теме — засчитываем как пройденный, чтобы не зациклиться
+    else L.resolved++;   // повторный промах — засчитываем как пройденный, чтобы не зациклиться
   }
   save(); rLesson();
   if (!ok) { const el = $('.fb') || root; el.classList.add('shake'); }
 }
 function next() {
-  L.queue.shift(); L.answered = false; L.sel = null; L.input = ''; L.hint = false;
-  if (!L.practice && S.hearts <= 0) return finish(true);
-  if (!L.queue.length) return finish(false);
+  clearTimeout(L.timer); tickTime();
+  L.queue.shift(); L.answered = false; L.sel = null; L.input = ''; L.hint = false; L.studied = false;
+  if (!L.queue.length) return finish();
   rLesson();
 }
 
-/* ---------- завершение урока ---------- */
-function finish(failed) {
-  const events = [], lvBefore = lvl(S.xp), mist = L.mistakes;
-  let xp = 0, coins = 0, stars = 0;
-  if (failed) { sfx.lose(); xp = L.firstOK * 2; }
-  else {
-    stars = mist === 0 ? 3 : mist <= 2 ? 2 : 1;
-    if (L.practice) xp = 2 * L.firstOK;
-    else { xp = 5 * L.firstOK + (mist === 0 ? 10 : 0) + 5; coins = L.firstOK + stars * 2; }
-    if (!L.mixed && !L.practice) { const arr = S.done[L.topic]; arr[L.idx] = Math.max(arr[L.idx] || 0, stars); for (let i = 0; i < arr.length; i++) arr[i] = arr[i] || 0; }
-    S.stat.lessons++; if (mist === 0) S.stat.perfect++;
-    touchStreak(); sfx.win(); confetti();
+/* ---------- завершение занятия ---------- */
+function finish() {
+  clearTimeout(L.timer); tickTime();
+  const events = [], lvBefore = lvl(S.xp), total = L.counted, ok = L.firstOK, stars = Skills.starsFor(ok, total), perfect = L.mistakes === 0;
+  let xp = 5 * ok + 5 + (perfect ? 10 : 0), coins = ok + stars * 2, routeDone = false;
+  S.starsTotal += stars; S.stat.lessons++; if (perfect) S.stat.perfect++; S.stat.bestCombo = Math.max(S.stat.bestCombo, L.bestCombo);
+  Skills.addHist(S.hist, today(), { sec: L.sec, ses: 1 }); Skills.pruneHist(S.hist, today());
+  if (L.route && S.route) {
+    const r = S.route; if (!r.done.includes(L.skill)) r.done.push(L.skill);
+    r.tot = r.tot || { xp: 0, coins: 0, ok: 0, total: 0, stars: 0 };
+    if (r.done.length >= r.skills.length && !r.finished) {
+      r.finished = true; routeDone = true; S.stat.routes++; xp += 20; coins += 10;
+      events.push({ i: '🗺️', t: tt('Маршрут пройден! +20 XP, +10 🪙', 'Маршрут пройдзены! +20 XP, +10 🪙', `Trasa splněna! +20 XP, +10 🪙`, `Route complete! +20 XP, +10 🪙`) });
+    }
+    r.tot.xp += xp; r.tot.coins += coins; r.tot.ok += ok; r.tot.total += total; r.tot.stars += stars;
   }
-  S.stat.bestCombo = Math.max(S.stat.bestCombo, L.bestCombo);
-  S.xp += xp; S.coins += coins; touchDay(); S.todayXp += xp;
-  if (S.todayXp >= GOAL && S.goalPaid !== today()) { S.goalPaid = today(); S.coins += 10; events.push({ i: '🎯', t: tt('Цель дня выполнена! +10 🪙', 'Мэта дня выканана! +10 🪙', `Denní cíl splněn! +10 🪙`, `Daily goal reached! +10 🪙`) }); }
+  S.xp += xp; S.coins += coins;
   const lvAfter = lvl(S.xp);
   if (lvAfter > lvBefore) { S.coins += 10 * (lvAfter - lvBefore); events.push({ i: '⬆️', t: tt(`Новый уровень: ${lvAfter}! +${10 * (lvAfter - lvBefore)} 🪙`, `Новы ўзровень: ${lvAfter}! +${10 * (lvAfter - lvBefore)} 🪙`, `Nová úroveň: ${lvAfter}! +${10 * (lvAfter - lvBefore)} 🪙`, `New level: ${lvAfter}! +${10 * (lvAfter - lvBefore)} 🪙`) }); }
   ACH.forEach(a => { if (!S.ach[a.id] && a.ok(S)) { S.ach[a.id] = today(); S.coins += 10; events.push({ i: a.i, t: tt(`Достижение «${P(a.t)}»! +10 🪙`, `Дасягненне «${P(a.t)}»! +10 🪙`, `Úspěch „${P(a.t)}“! +10 🪙`, `Achievement "${P(a.t)}"! +10 🪙`) }); } });
-  save();
-  const unlocked = !failed && !L.mixed && !L.practice && L.idx < LESSONS - 1;
-  RES = { failed, stars, xp, coins, events, topic: L.topic, idx: L.idx, mixed: L.mixed, practice: L.practice, mist, right: L.firstOK, total: L.total, nextOk: unlocked };
+  save(); sfx.win(); confetti(routeDone ? 70 : 44);
+  const nx = S.route && L.route ? S.route.skills.find(k => !S.route.done.includes(k)) : null;
+  RES = { skill: L.skill, stars, xp, coins, events, right: ok, total, route: L.route, routeDone, next: nx, tot: S.route && S.route.tot };
   R = 'result'; render();
 }
 function rResult() {
-  const r = RES;
-  root.innerHTML = `<div class="result">
-    <div style="font-size:70px">${r.failed ? '💔' : r.stars === 3 ? '🏆' : '🎉'}</div>
-    <h1>${r.failed ? tt('Сердечки закончились', 'Сэрцайкі скончыліся', `Došla srdíčka`, `Out of hearts`) : r.stars === 3 ? tt('Идеально!', 'Ідэальна!', `Perfektní!`, `Perfect!`) : tt('Урок пройден!', 'Урок пройдзены!', `Lekce splněna!`, `Lesson complete!`)}</h1>
-    <div class="sub">${r.failed ? tt('Не расстраивайся — отдохни и попробуй снова!', 'Не засмучайся — адпачні і паспрабуй зноў!', `Nezoufej – odpočiň si a zkus to znovu!`, `Don't be sad – take a rest and try again!`) : tt(`Верно с первого раза: ${r.right} из ${r.total}`, `Правільна з першага разу: ${r.right} з ${r.total}`, `Správně na první pokus: ${r.right} z ${r.total}`, `Right first time: ${r.right} of ${r.total}`)}</div>
-    ${r.failed ? '' : `<div class="stars">${[1, 2, 3].map(i => `<span class="${i <= r.stars ? 'on' : ''}">⭐</span>`).join('')}</div>`}
-    <div class="rew"><div><b>+${r.xp}</b>XP</div><div><b>+${r.coins}</b>${tt('монет', 'манет', `mincí`, `coins`)} 🪙</div><div><b>${curStreak()}</b>${tt('серия', 'серыя', `série`, `streak`)} 🔥</div></div>
+  const r = RES, k = SK[r.skill];
+  if (r.routeDone) {
+    const t = r.tot;
+    root.innerHTML = `<div class="result"><div style="font-size:70px">🌙</div><h1>${tt('На сегодня всё!', 'На сёння ўсё!', `Pro dnešek hotovo!`, `That's all for today!`)}</h1>
+      <div class="sub">${tt('Отличная работа! Завтра — новый маршрут.', 'Выдатная праца! Заўтра — новы маршрут.', `Skvělá práce! Zítra tě čeká nová trasa.`, `Great work! A new route is waiting tomorrow.`)}</div>
+      <div class="mascot big" style="margin:14px auto"><span class="hat">${S.hat}</span><span class="pet">${S.pet}</span></div>
+      <div class="rew"><div><b>+${t.xp}</b>XP</div><div><b>+${t.coins}</b>${tt('монет', 'манет', `mincí`, `coins`)} 🪙</div><div><b>${t.ok}/${t.total}</b>${tt('верно', 'правільна', `správně`, `correct`)} ✓</div></div>
+      ${r.events.map(e => `<div class="evt">${e.i} ${e.t}</div>`).join('')}
+      <div class="acts"><button class="btn grn" data-a="home">${tt('На главный экран', 'На галоўны экран', `Na hlavní obrazovku`, `Home`)}</button></div></div>`;
+    return;
+  }
+  const title = r.stars === 3 ? tt('Идеально!', 'Ідэальна!', `Perfektní!`, `Perfect!`) : r.route ? tt('Мини-игра пройдена!', 'Міні-гульня пройдзена!', `Minihra splněna!`, `Mini-game complete!`) : tt('Занятие завершено!', 'Занятак завершаны!', `Trénink dokončen!`, `Session complete!`);
+  root.innerHTML = `<div class="result"><div style="font-size:70px">${r.stars === 3 ? '🏆' : '🎉'}</div><h1>${title}</h1>
+    <div class="sub">${tt(`Верно с первого раза: ${r.right} из ${r.total}`, `Правільна з першага разу: ${r.right} з ${r.total}`, `Správně na první pokus: ${r.right} z ${r.total}`, `Right first time: ${r.right} of ${r.total}`)}</div>
+    <div class="stars">${[1, 2, 3].map(i => `<span class="${i <= r.stars ? 'on' : ''}">⭐</span>`).join('')}</div>
+    <div class="rew"><div><b>+${r.xp}</b>XP</div><div><b>+${r.coins}</b>${tt('монет', 'манет', `mincí`, `coins`)} 🪙</div><div><b>${k.icon} ${S.skills[r.skill].lvl}</b>${tt('уровень навыка', 'узровень навыку', `úroveň dovednosti`, `skill level`)}</div></div>
     ${r.events.map(e => `<div class="evt">${e.i} ${e.t}</div>`).join('')}
-    <div class="acts">${r.nextOk ? `<button class="btn grn" data-a="nextlesson">${tt('Следующий урок ▶', 'Наступны ўрок ▶', `Další lekce ▶`, `Next lesson ▶`)}</button>` : ''}
-      <button class="btn ${r.nextOk ? 'ghost' : 'grn'}" data-a="home">${tt('Продолжить', 'Працягнуць', `Pokračovat`, `Continue`)}</button>
-      ${r.failed ? '' : `<button class="btn ghost" data-a="again">${tt('Ещё раз', 'Яшчэ раз', `Ještě jednou`, `Again`)}</button>`}</div></div>`;
+    <div class="acts">${r.route && r.next ? `<button class="btn grn" data-a="route">${tt('Дальше', 'Далей', `Dál`, `Next`)}: ${SK[r.next].icon} ${P(SK[r.next].name)} ▶</button>` : ''}
+      <button class="btn ${r.route && r.next ? 'ghost' : 'grn'}" data-a="home">${tt('На главный экран', 'На галоўны экран', `Na hlavní obrazovku`, `Home`)}</button>
+      ${r.route ? '' : `<button class="btn ghost" data-a="again">${tt('Ещё раз', 'Яшчэ раз', `Ještě jednou`, `Again`)}</button>`}</div></div>`;
 }
 
 /* ======================== Облако (Firebase): вход через Google и сохранение прогресса ======================== */
@@ -435,7 +440,7 @@ function setCloud(st) { cloudState = st; if (R === 'profile') rProfile(); }
 const clone = o => JSON.parse(JSON.stringify(o));
 const isFresh = s => !s.xp && !(s.stat && s.stat.lessons) && !s.coins;
 /* Объединение локального (a) и облачного (b) прогресса. Ничего «накопленного» не теряем:
-   XP, звёзды, достижения, питомцы — по максимуму/объединению; монеты, сердечки, серия — от более свежей копии. */
+   XP, звёзды, достижения, питомцы, история занятий — по максимуму/объединению; монеты и маршрут дня — от более свежей копии. */
 function mergeStates(a, b) {
   a = Object.assign(defState(), a); b = Object.assign(defState(), b);
   if (isFresh(b)) return a;
@@ -445,17 +450,15 @@ function mergeStates(a, b) {
   m.name = nw.name || ol.name; m.xp = Math.max(a.xp, b.xp);
   m.pets = union(a.pets, b.pets); m.hats = union(a.hats, b.hats);
   m.pet = m.pets.includes(nw.pet) ? nw.pet : (m.pets[0] || ''); m.hat = (!nw.hat || m.hats.includes(nw.hat)) ? nw.hat : '';
-  m.done = {}; for (const t of new Set([...Object.keys(a.done), ...Object.keys(b.done)])) {
-    const x = a.done[t] || [], y = b.done[t] || [], n = Math.max(x.length, y.length); m.done[t] = Array.from({ length: n }, (_, i) => Math.max(x[i] || 0, y[i] || 0)); }
   m.ach = Object.assign({}, ol.ach, nw.ach);
   m.stat = {}; for (const k of new Set([...Object.keys(a.stat), ...Object.keys(b.stat)])) m.stat[k] = Math.max(a.stat[k] || 0, b.stat[k] || 0);
-  m.bestStreak = Math.max(a.bestStreak, b.bestStreak);
-  const sd = (a.lastDay || '') >= (b.lastDay || '') ? a : b;
-  m.streak = sd.streak; m.lastDay = sd.lastDay;
-  const td = (a.todayDate || '') >= (b.todayDate || '') ? a : b; m.todayDate = td.todayDate; m.todayXp = td.todayXp; m.goalPaid = (a.goalPaid || '') >= (b.goalPaid || '') ? a.goalPaid : b.goalPaid;
+  m.starsTotal = Math.max(a.starsTotal || 0, b.starsTotal || 0);
+  m.skills = Skills.mergeSkills(a.skills, b.skills); m.hist = Skills.mergeHist(a.hist, b.hist);
+  m.route = (a.route && b.route && a.route.date === b.route.date) ? (a.route.done.length >= b.route.done.length ? a.route : b.route) : nw.route;
   m.recent = union(ol.recent, nw.recent).slice(-150);
+  for (const k of [...OLD_KEYS, 'done']) delete m[k];
   m.lang = a.lang; m.sound = a.sound; m.ts = Math.max(a.ts || 0, b.ts || 0);
-  return m;
+  return clone(m);
 }
 async function pushNow() {
   if (!fbUser || !fbDb) return;
@@ -512,25 +515,31 @@ const A = {
   obstart() {
     const v = ($('#nm').value || '').trim();
     if (!v) { toast(tt('Напиши своё имя 🙂', 'Напішы сваё імя 🙂', `Napiš své jméno 🙂`, `Type your name 🙂`)); return; }
-    S.name = v; S.pet = ob.pet; S.pets = [ob.pet]; S.heartAt = Date.now(); save(); R = 'home'; render();
+    S.name = v; S.pet = ob.pet; S.pets = [ob.pet]; save(); R = 'home'; render();
   },
   goto(el) { R = el.dataset.t; phrase = newPhrase(); render(); },
   home() { R = 'home'; phrase = newPhrase(); render(); },
-  lesson(el) { sfx.tap(); startLesson(el.dataset.t, +el.dataset.i); },
-  locked() { toast(tt('Сначала пройди предыдущий урок 🔒', 'Спачатку прайдзі папярэдні ўрок 🔒', `Nejdřív dokonči předchozí lekci 🔒`, `Finish the previous lesson first 🔒`)); },
-  mixed() { startLesson(undefined, 0, { mixed: true }); },
+  route() {
+    sfx.tap(); const r = Skills.ensureRoute(S, today(), availSkills()), nx = r.skills.find(k => !r.done.includes(k));
+    if (nx) startSession(nx, { n: ROUTE_QPL, route: true });
+  },
+  skill(el) { sfx.tap(); startSession(el.dataset.s); },
+  again() { startSession(RES.skill); },
   pick(el) { if (L.answered) return; L.sel = +el.dataset.i; sfx.tap(); rLesson(); },
   key(el) { press(el.dataset.k); },
-  check() { if (!$('[data-a=check]').disabled) check(); },
+  check() { const b = $('[data-a=check]'); if (b && !b.disabled) check(); },
   next() { next(); },
+  ready() { if (L && !L.studied) { clearTimeout(L.timer); L.studied = true; rLesson(); } },
   hint() {
     if (L.hint) return;
     if (S.coins < HINT_PRICE) { toast(tt(`Нужно ${HINT_PRICE} 🪙 для подсказки`, `Трэба ${HINT_PRICE} 🪙 для падказкі`, `Na nápovědu potřebuješ ${HINT_PRICE} 🪙`, `You need ${HINT_PRICE} 🪙 for a hint`)); return; }
     S.coins -= HINT_PRICE; L.hint = true; save(); sfx.coin(); rLesson();
   },
-  quit() { modal({ icon: '🤔', title: tt('Выйти из урока?', 'Выйсці з урока?', `Ukončit lekci?`, `Leave the lesson?`), text: tt('Прогресс этого урока не сохранится.', 'Прагрэс гэтага ўрока не захаваецца.', `Postup této lekce se neuloží.`, `Progress in this lesson will not be saved.`), btns: [{ t: tt('Продолжить', 'Працягнуць', `Pokračovat`, `Continue`), c: 'grn', f: () => {} }, { t: tt('Выйти', 'Выйсці', `Odhlásit`, `Sign out`), c: 'ghost', f: () => { R = 'home'; render(); } }] }); },
-  again() { startLesson(RES.topic, RES.idx, { mixed: RES.mixed, practice: RES.practice }); },
-  nextlesson() { startLesson(RES.topic, RES.idx + 1); },
+  quit() {
+    modal({ icon: '🤔', title: tt('Выйти из занятия?', 'Выйсці з занятку?', `Ukončit trénink?`, `Leave the session?`), text: tt('Ответы уже сохранены, а это занятие можно начать заново.', 'Адказы ўжо захаваны, а гэты занятак можна пачаць зноў.', `Odpovědi jsou už uložené, trénink můžeš začít znovu.`, `Your answers are already saved – you can start this session again.`),
+      btns: [{ t: tt('Продолжить', 'Працягнуць', `Pokračovat`, `Continue`), c: 'grn', f: () => {} },
+        { t: tt('Выйти', 'Выйсці', `Odejít`, `Leave`), c: 'ghost', f: () => { clearTimeout(L.timer); tickTime(); Skills.addHist(S.hist, today(), { sec: L.sec }); save(); R = 'home'; render(); } }] });
+  },
   buy(el) {
     const kind = el.dataset.k, it = (kind === 'pet' ? PETS : HATS).find(x => x.e === el.dataset.e);
     if (S.coins < it.p) { toast(tt(`Не хватает монет: нужно ${it.p} 🪙`, `Не хапае манет: трэба ${it.p} 🪙`, `Nemáš dost mincí: potřebuješ ${it.p} 🪙`, `Not enough coins: you need ${it.p} 🪙`)); return; }
@@ -543,15 +552,11 @@ const A = {
     if (el.dataset.k === 'pet') S.pet = el.dataset.e; else S.hat = S.hat === el.dataset.e ? '' : el.dataset.e;
     save(); sfx.tap(); render();
   },
-  buyheart() { buyHeart(); },
-  heartinfo() {
-    syncHearts();
-    modal({ icon: '❤️', title: tt(`Сердечки: ${S.hearts} из 5`, `Сэрцайкі: ${S.hearts} з 5`, `Srdíčka: ${S.hearts} z 5`, `Hearts: ${S.hearts} of 5`), text: S.hearts < 5 ? tt(`За каждую ошибку в уроке уходит одно сердечко. Следующее вернётся через <b>${heartTimer()}</b>.`, `За кожную памылку ва ўроку знікае адно сэрцайка. Наступнае вернецца праз <b>${heartTimer()}</b>.`, `Za každou chybu v lekci ubyde jedno srdíčko. Další se vrátí za <b>${heartTimer()}</b>.`, `Each mistake in a lesson costs one heart. The next one comes back in <b>${heartTimer()}</b>.`) : tt('Сердечки полные! За ошибки в уроке они тратятся, а со временем восстанавливаются.', 'Сэрцайкі поўныя! За памылкі ва ўроку яны траціцца, а з часам аднаўляюцца.', `Srdíčka jsou plná! Za chyby v lekci ubývají, ale časem se obnovují.`, `Hearts are full! Mistakes in a lesson use them up, but they come back over time.`),
-      btns: [...(S.hearts < 5 ? [{ t: tt(`Купить ❤️ за ${HEART_PRICE} 🪙`, `Купіць ❤️ за ${HEART_PRICE} 🪙`, `Koupit ❤️ za ${HEART_PRICE} 🪙`, `Buy ❤️ for ${HEART_PRICE} 🪙`), c: 'yel', f: () => { buyHeart(); } }] : []), { t: tt('Понятно', 'Зразумела', `Jasné`, `Got it`), c: 'ghost', f: () => {} }] });
-  },
-  streakinfo() {
-    const s = curStreak();
-    modal({ icon: '🔥', title: s ? tt(`Серия: ${s} ${plural(s, ['день', 'дня', 'дней'])}`, `Серыя: ${s} ${plural(s, ['дзень', 'дні', 'дзён'])}`, `Série: ${s} ${s === 1 ? 'den' : s < 5 ? 'dny' : 'dní'}`, `Streak: ${s} ${s === 1 ? 'day' : 'days'}`) : tt('Серии пока нет', 'Серыі пакуль няма', `Zatím žádná série`, `No streak yet`), text: S.lastDay === today() ? tt('Сегодня уже были уроки — так держать! Заходи завтра, чтобы серия росла.', 'Сёння ўжо былі ўрокі — так трымаць! Заходзь заўтра, каб серыя расла.', `Dnes už proběhly lekce – jen tak dál! Přijď zítra, ať série roste.`, `You have already had lessons today – keep it up! Come back tomorrow to grow your streak.`) : tt('Пройди хотя бы один урок сегодня, чтобы продолжить серию!', 'Прайдзі хаця б адзін урок сёння, каб працягнуць серыю!', `Dokonči dnes aspoň jednu lekci, ať série pokračuje!`, `Complete at least one lesson today to keep your streak going!`), btns: [{ t: tt('Понятно', 'Зразумела', `Jasné`, `Got it`), c: 'ghost', f: () => {} }] });
+  weekinfo() {
+    const n = weekCount(), t0 = today(), names = Array.from({ length: 7 }, (_, i) => { const d = Skills.parseDay(Skills.addDays(t0, i - 6)); let w = ''; try { w = new Intl.DateTimeFormat(getLang(), { weekday: 'short' }).format(d); } catch (e) { w = String(d.getDate()); } return [w, (S.hist[Skills.addDays(t0, i - 6)] || {}).ses > 0]; });
+    modal({ icon: '🔥', title: tt(`Дней занятий за неделю: ${n} из 7`, `Дзён заняткаў за тыдзень: ${n} з 7`, `Dnů cvičení za týden: ${n} ze 7`, `Days practised this week: ${n} of 7`),
+      text: `<div class="wk">${names.map(([w, on]) => `<span class="${on ? 'on' : ''}"><i>${on ? '🔥' : '·'}</i>${w}</span>`).join('')}</div>` + tt('Пропущенный день ничего не сбрасывает — просто возвращайся, когда захочется.', 'Прапушчаны дзень нічога не скідае — проста вяртайся, калі захочацца.', `Vynechaný den nic nenuluje – prostě se vrať, až budeš chtít.`, `A missed day resets nothing – just come back whenever you like.`),
+      btns: [{ t: tt('Понятно', 'Зразумела', `Jasné`, `Got it`), c: 'ghost', f: () => {} }] });
   },
   sound() { S.sound = !S.sound; save(); sfx.tap(); render(); },
   rename() { const n = (prompt(tt('Как тебя зовут?', 'Як цябе клічуць?', `Jak se jmenuješ?`, `What is your name?`), S.name) || '').trim(); if (n) { S.name = n.slice(0, 14); save(); render(); } },
@@ -568,18 +573,11 @@ document.addEventListener('click', e => {
 document.addEventListener('keydown', e => {
   if (R !== 'lesson' || !L || $('#modal').innerHTML) return;
   const q = L.queue[0];
-  if (e.key === 'Enter') { if (L.answered) next(); else if (!$('[data-a=check]').disabled) check(); }
+  if (q.study && !L.studied) { if (e.key === 'Enter') A.ready(); return; }
+  if (e.key === 'Enter') { if (L.answered) next(); else A.check(); }
   else if (!L.answered && q.type === 'num') { if (/^\d$/.test(e.key)) press(e.key); else if (e.key === 'Backspace') press('b'); }
   else if (!L.answered && q.type === 'choice' && /^[1-4]$/.test(e.key) && q.choices[+e.key - 1]) { L.sel = +e.key - 1; rLesson(); }
 });
-
-/* таймер сердечек */
-setInterval(() => {
-  const h = $('#hearts'); if (!h || R === 'lesson') return;
-  const before = S.hearts; syncHearts();
-  if (S.hearts !== before) { save(); render(); return; }
-  const t = $('#htimer'); if (t) t.textContent = heartTimer();
-}, 1000);
 
 /* ======================== Запуск ======================== */
 load(); phrase = newPhrase(); render();
@@ -590,5 +588,5 @@ up.setAttribute('aria-label', tt('Наверх', 'Угару', `Nahoru`, `Up`));
 up.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
 window.addEventListener('scroll', () => { up.hidden = !(window.scrollY > 400 && ['home', 'shop', 'awards'].includes(R)); }, { passive: true });
 if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(() => {});
-window.__umniki = { GENS, S: () => S, L: () => L, A, buildLesson, sigOf, mergeStates, defState, clone };
+window.__umniki = { GENS, S: () => S, L: () => L, A, buildSet, skillPool, sigOf, mergeStates, defState, clone, SK, availSkills };
 })();

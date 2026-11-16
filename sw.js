@@ -1,5 +1,5 @@
-const CACHE = 'umniki-v7';
-const FILES = ['./', 'index.html', 'styles.css', 'gens.js', 'app.js', 'manifest.webmanifest',
+const CACHE = 'umniki-v8';
+const FILES = ['./', 'index.html', 'styles.css', 'skills.js', 'gens.js', 'app.js', 'manifest.webmanifest',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
