@@ -11,14 +11,15 @@ const SKILL_OF = {
   fshade: 'numbers', fof: 'numbers', fcmp: 'numbers', ncmp: 'numbers', ops: 'numbers', equiv: 'numbers',
   seq: 'logic', machine: 'logic', odd: 'logic', pattern: 'logic', analogy: 'logic', riddle: 'logic', order: 'logic', legs: 'logic', balance: 'logic', sudoku: 'logic', magic: 'logic',
   perim: 'space', area: 'space', shapes: 'space', robot: 'space', mirror: 'space', rotate: 'space', symm: 'space', where: 'space',
-  ycount: 'numbers', yadd: 'numbers', ymore: 'numbers',
+  ycount: 'numbers', yadd: 'numbers', ymore: 'numbers', yfind: 'numbers', ynext: 'numbers', yshare: 'numbers', ymiss: 'numbers',
+  ysize: 'logic', ybelong: 'logic', yheavy: 'logic', yshape: 'space', ymatch: 'attention',
   count: 'attention', diff: 'attention', vanish: 'attention', same: 'attention', most: 'attention', unpair: 'attention',
   memseq: 'memory', mempos: 'memory', memnum: 'memory', memcount: 'memory', mempair: 'memory', memcolor: 'memory',
   chess_move: 'chess', chess_capture: 'chess', chess_check: 'chess', chess_mate: 'chess', chess_win: 'chess', chess_save: 'chess',
 };
 
 /* Задания, которые подходят в 5–7 лет: почти без чтения, мелкие числа, картинки */
-const YOUNG = new Set(['add', 'sub', 'ycount', 'yadd', 'ymore', 'seq', 'odd', 'pattern', 'robot', 'mirror', 'where', 'count', 'diff', 'vanish', 'same', 'most', 'unpair',
+const YOUNG = new Set(['add', 'sub', 'ycount', 'yadd', 'ymore', 'yfind', 'ynext', 'yshare', 'ymiss', 'ysize', 'ybelong', 'yheavy', 'yshape', 'ymatch', 'seq', 'odd', 'pattern', 'robot', 'mirror', 'where', 'count', 'diff', 'vanish', 'same', 'most', 'unpair',
   'memseq', 'mempos', 'memnum', 'memcount', 'mempair', 'memcolor', 'chess_move', 'chess_capture', 'chess_check', 'chess_mate', 'chess_win', 'chess_save']);
 const YOUNG_MAX_AGE = 7, AGES = [5, 6, 7, 8, 9, 10];
 const isYoungAge = age => age >= 5 && age <= YOUNG_MAX_AGE;

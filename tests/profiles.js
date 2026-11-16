@@ -36,8 +36,8 @@ const U = (p, f, a) => p.evaluate(f, a);
   ok(st.zl === 3 && st.zn === 3 && st.zm === 2 && st.zc === 1, 'возраст 10: старт — числа/логика/пространство 3, память 2, шахматы 1');
   ok(JSON.stringify(st.a8) === '[2,2,1,1]', 'возраст 8: уровень 2 в числах и логике, внимание 1, шахматы 1');
   ok(JSON.stringify(st.ap) === '[4,3]', 'смена возраста меняет старт только у навыков без ответов (числа с ответами остались на 4)');
-  ok(st.mNum.every(id => ['add', 'sub', 'ycount', 'yadd', 'ymore'].includes(id)) && st.mNum.length >= 4, 'возраст 6: в числах только простые задания на картинках ' + st.mNum.join(','));
-  ok(st.mLg.every(id => ['seq', 'odd', 'pattern'].includes(id)) && st.mSp.every(id => ['robot', 'mirror', 'where'].includes(id)) && st.mAt.length === 6 && st.mMem.length === 6, 'возраст 6: логика/пространство без «чтения», внимание и память целиком');
+  ok(st.mNum.every(id => ['add', 'sub', 'ycount', 'yadd', 'ymore', 'yfind', 'ynext', 'yshare', 'ymiss'].includes(id)) && st.mNum.length === 9, 'возраст 6: в числах только простые задания на картинках ' + st.mNum.join(','));
+  ok(st.mLg.length === 6 && st.mLg.every(id => ['seq', 'odd', 'pattern', 'ysize', 'ybelong', 'yheavy'].includes(id)) && st.mSp.every(id => ['robot', 'mirror', 'where', 'yshape'].includes(id)) && st.mAt.length === 7 && st.mMem.length === 6, 'возраст 6: логика/пространство без «чтения», внимание и память целиком');
   ok(st.aNum > 10 && st.aSp >= 8, 'ребёнок без «детского» возраста: полный набор заданий (' + st.aNum + ' чисел, ' + st.aSp + ' пространство)');
 
   /* 4. выбор профиля картинкой, переключение, общий PIN */
