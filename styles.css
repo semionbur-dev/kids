@@ -238,3 +238,20 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;paddin
 .cd i{display:block;height:100%;width:100%;background:var(--blu);transform-origin:left;animation:shrink linear forwards}
 @keyframes shrink{from{transform:scaleX(1)}to{transform:scaleX(0)}}
 .studyv{font-size:40px;min-height:160px;flex-direction:column}
+
+/* отчёт родителя */
+.rp-cards{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px}
+.rp-card{background:#fff;border:2px solid var(--line);border-radius:16px;padding:10px 12px;display:flex;flex-direction:column;gap:2px}
+.rp-card small{font-size:12px;color:var(--mut)}.rp-card b{font-size:26px}.rp-card u{text-decoration:none;font-size:14px;color:var(--mut);font-weight:800}
+.tr{font-size:12px;font-weight:800}.tr.up{color:#2e9e00}.tr.dn{color:#d9822b}.tr.eq{color:var(--mut)}
+.bars{display:flex;gap:6px;align-items:flex-end;background:#fff;border:2px solid var(--line);border-radius:16px;padding:12px 10px 8px}
+.bcol{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px}
+.bcol .bt{width:100%;height:90px;display:flex;align-items:flex-end;justify-content:center}
+.bcol .bt i{display:block;width:70%;border-radius:6px 6px 2px 2px;background:linear-gradient(180deg,#9b8cff,#7b6cff)}
+.bcol.now .bt i{background:linear-gradient(180deg,#58cc02,#3fa000)}
+.bcol .bv{font-size:11px;min-height:14px;color:var(--ink)}.bcol .bl{font-size:11px;color:var(--mut);text-transform:capitalize}
+.radar{display:flex;justify-content:center;background:#fff;border:2px solid var(--line);border-radius:16px;margin-bottom:8px;padding:6px 0}
+.skrow{display:flex;align-items:center;gap:10px;background:#fff;border:2px solid var(--line);border-left:6px solid var(--c);border-radius:14px;padding:8px 12px;margin-bottom:8px}
+.skrow .ico{font-size:26px}.skrow .nm{flex:1}.skrow .nm b{font-size:15px;color:var(--c)}.skrow .num{text-align:right;font-size:13px;line-height:1.3}.skrow .num small{color:var(--mut)}
+.tip{background:#fff7d6;border:2px solid #ffe08a;border-radius:16px;padding:12px 14px;font-size:15px;line-height:1.4}
+@media print{.top,.tabs,.back,#totop,.row2,.sect:empty{display:none!important}body{background:#fff}.page{padding-bottom:10px}}

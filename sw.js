@@ -1,4 +1,4 @@
-const CACHE = 'umniki-v8';
+const CACHE = 'umniki-v9';
 const FILES = ['./', 'index.html', 'styles.css', 'skills.js', 'gens.js', 'app.js', 'manifest.webmanifest',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
 self.addEventListener('install', e => {

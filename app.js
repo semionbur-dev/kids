@@ -180,7 +180,7 @@ const tabs = on => `<nav class="tabs">${[['home', '🏠', tt('Учёба', 'На
 function render() {
   if (!S.name) R = 'onboard';
   if (R === 'profile' || R === 'onboard') prefetchFb();
-  ({ onboard: rOnboard, home: rHome, shop: rShop, awards: rAwards, profile: rProfile, lesson: rLesson, result: rResult })[R]();
+  ({ onboard: rOnboard, home: rHome, shop: rShop, awards: rAwards, profile: rProfile, report: rReport, lesson: rLesson, result: rResult })[R]();
   window.scrollTo(0, 0);
 }
 
@@ -268,6 +268,7 @@ function rProfile() {
     <div class="prof big">${mascot('')}<div class="pinfo"><div class="nm">${esc(S.name)}</div><div class="lv">${tt('Уровень', 'Узровень', `Úroveň`, `Level`)} ${L0} · ${S.xp} XP</div>
       <div class="bar xp"><i style="width:${pr}%"></i></div></div></div>
     <div class="row2"><button class="btn ghost sm" data-a="goto" data-t="shop">🎁 ${tt('Сменить друга и шляпу', 'Змяніць сябра і галаўны ўбор', `Změnit kamaráda a klobouk`, `Change friend and hat`)}</button></div>
+    <div class="row2"><button class="btn blu sm" data-a="goto" data-t="report">📊 ${tt('Отчёт для родителя', 'Справаздача для бацькоў', `Přehled pro rodiče`, `Parent report`)}</button></div>
     <div class="sect">${tt('Аккаунт', 'Акаўнт', `Účet`, `Account`)}</div>
     ${fbUser ? `<div class="row2"><div class="cloud">☁️ ${esc(fbUser.email || '')}<small>${cloudText()}</small></div><button class="btn ghost sm" data-a="logout" style="width:auto">${tt('Выйти', 'Выйсці', `Odhlásit`, `Sign out`)}</button></div>`
       : `<div class="row2"><button class="btn blu sm" data-a="login">🔑 ${tt('Войти через Google и сохранить прогресс', 'Увайсці праз Google і захаваць прагрэс', `Přihlásit se přes Google a uložit postup`, `Sign in with Google and save progress`)}</button></div>`}
@@ -276,6 +277,85 @@ function rProfile() {
     <div class="sect">🌐 ${tt('Язык', 'Мова', 'Jazyk', 'Language')}</div>
     <div class="pets lang">${Object.entries(LANG_NAMES).map(([c, n]) => `<button class="${S.lang === c ? 'on' : ''}" data-a="lang" data-l="${c}">${n}</button>`).join('')}</div>
     <div class="row2"><button class="btn ghost sm" data-a="rename">✏️ ${tt('Сменить имя', 'Змяніць імя', `Změnit jméno`, `Change name`)}</button><button class="btn ghost sm" data-a="reset">🗑 ${tt('Начать заново', 'Пачаць зноў', `Začít znovu`, `Start over`)}</button></div></div>` + tabs('');
+}
+
+/* ---------- отчёт для родителя (F9): неделя, паспорт навыков, совет ---------- */
+const TIPS = {
+  numbers: ['Считайте вместе в быту: сдача в магазине, доли пиццы, сколько минут до выхода. Просите рассказать, как считали, — объяснение закрепляет навык.',
+    'Лічыце разам у побыце: рэшта ў краме, долі піцы, колькі хвілін да выхаду. Прасіце расказаць, як лічылі, — тлумачэнне замацоўвае навык.',
+    'Počítejte spolu v běžném životě: drobné v obchodě, díly pizzy, kolik minut zbývá do odchodu. Nechte dítě vysvětlit, jak počítalo – vysvětlení upevňuje dovednost.',
+    'Count together in everyday life: change in a shop, slices of pizza, minutes until you leave. Ask your child to explain how they worked it out – explaining strengthens the skill.'],
+  logic: ['Играйте в «найди закономерность»: ряды предметов за столом, загадки в дороге. Не подсказывайте сразу — подождите 10 секунд и задайте наводящий вопрос.',
+    'Гуляйце ў «знайдзі заканамернасць»: радкі прадметаў за сталом, загадкі ў дарозе. Не падказвайце адразу — пачакайце 10 секунд і задайце навадное пытанне.',
+    'Hrajte „najdi pravidlo“: řady předmětů na stole, hádanky cestou. Nenapovídejte hned – počkejte 10 sekund a pak položte pomocnou otázku.',
+    'Play “find the pattern”: rows of objects on the table, riddles on the road. Don’t give hints right away – wait 10 seconds, then ask a guiding question.'],
+  space: ['Дайте поиграть с конструктором, оригами или рисованием по клеточкам. Попросите описать дорогу до дома словами: «налево, потом прямо».',
+    'Дайце пагуляць з канструктарам, арыгамі або маляваннем па клетках. Папрасіце апісаць дарогу дадому словамі: «налева, потым прама».',
+    'Nechte dítě hrát si se stavebnicí, skládat origami nebo kreslit do čtverečkovaného papíru. Požádejte, ať slovy popíše cestu domů: „doleva, pak rovně“.',
+    'Let your child play with building blocks, origami or drawing on squared paper. Ask them to describe the way home in words: “left, then straight”.'],
+  attention: ['Играйте в «найди отличия» и «что изменилось в комнате». Короткие игры по 2–3 минуты лучше долгих; уберите отвлекающие звуки на время занятия.',
+    'Гуляйце ў «знайдзі адрозненні» і «што змянілася ў пакоі». Кароткія гульні па 2–3 хвіліны лепшыя за доўгія; прыбярыце адцягваючыя гукі на час заняткаў.',
+    'Hrajte „najdi rozdíly“ a „co se změnilo v pokoji“. Krátké hry po 2–3 minutách jsou lepší než dlouhé; na dobu cvičení vypněte rušivé zvuky.',
+    'Play “spot the difference” and “what changed in the room”. Short 2–3 minute games work better than long ones; switch off distracting sounds during practice.'],
+  memory: ['Попробуйте запоминать список покупок, номера этажей, стишки. Просите пересказать прочитанное своими словами. Хороший сон тоже тренирует память.',
+    'Паспрабуйце запамінаць спіс пакупак, нумары паверхаў, вершыкі. Прасіце пераказаць прачытанае сваімі словамі. Добры сон таксама трэніруе памяць.',
+    'Zkuste si pamatovat nákupní seznam, čísla pater nebo básničky. Nechte dítě převyprávět přečtené vlastními slovy. Paměť trénuje i dostatek spánku.',
+    'Try remembering a shopping list, floor numbers or rhymes. Ask your child to retell what they read in their own words. Good sleep trains memory too.'],
+  chess: ['Сыграйте несколько партий «только королём и ладьёй» или решайте мат в один ход на настоящей доске. Называйте фигуры вслух — так легче запомнить ходы.',
+    'Згуляйце некалькі партый «толькі каралём і ладдзёй» або вырашайце мат у адзін ход на сапраўднай дошцы. Называйце фігуры ўголас — так лягчэй запомніць хады.',
+    'Zahrajte si pár partií jen s králem a věží nebo řešte mat v jednom tahu na skutečné šachovnici. Pojmenovávejte figury nahlas – tahy se snáz pamatují.',
+    'Play a few games with just a king and a rook, or solve mate-in-one on a real board. Name the pieces aloud – the moves are easier to remember.'],
+};
+const fmtMin = sec => (sec > 0 && sec < 60 ? '<1' : String(Math.round(sec / 60)));
+const pct = (o, t) => (t > 0 ? Math.round(100 * o / t) : null);
+function dayLabel(dateStr, opt) { try { return new Intl.DateTimeFormat(getLang(), opt).format(Skills.parseDay(dateStr)); } catch (e) { return dateStr; } }
+function trend(cur, prev, unit = '') {   // стрелка динамики к прошлой неделе
+  if (cur == null || prev == null || (cur === 0 && prev === 0)) return '';
+  const d = cur - prev; if (d === 0) return '<span class="tr eq">＝</span>';
+  return `<span class="tr ${d > 0 ? 'up' : 'dn'}">${d > 0 ? '▲' : '▼'} ${Math.abs(Math.round(d))}${unit}</span>`;
+}
+function radarSVG(items) {
+  const n = items.length, cx = 120, cy = 118, Rr = 78, pt = (i, r) => { const a = -Math.PI / 2 + i * 2 * Math.PI / n; return [cx + r * Math.cos(a), cy + r * Math.sin(a)]; };
+  const poly = r => items.map((_, i) => pt(i, r).map(v => v.toFixed(1)).join(',')).join(' ');
+  let g = '';
+  for (let k = 1; k <= 5; k++) g += `<polygon points="${poly(Rr * k / 5)}" fill="${k % 2 ? '#faf9ff' : '#fff'}" stroke="#d9d4ff" stroke-width="1"/>`;
+  items.forEach((_, i) => { const [x, y] = pt(i, Rr); g += `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="#d9d4ff"/>`; });
+  const data = items.map((it, i) => pt(i, Rr * it.v / 5).map(v => v.toFixed(1)).join(',')).join(' ');
+  g += `<polygon points="${data}" fill="rgba(123,108,255,.28)" stroke="#7b6cff" stroke-width="3" stroke-linejoin="round"/>`;
+  items.forEach((it, i) => { const [x, y] = pt(i, Rr * it.v / 5); g += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4" fill="${it.color}"/>`;
+    const [lx, ly] = pt(i, Rr + 22); g += `<text x="${lx.toFixed(1)}" y="${(ly + 8).toFixed(1)}" text-anchor="middle" font-size="22">${it.icon}</text>`; });
+  return `<svg viewBox="0 0 240 236" width="260" role="img" aria-label="${tt('Паспорт навыков', 'Пашпарт навыкаў', `Pas dovedností`, `Skills passport`)}">${g}</svg>`;
+}
+function rReport() {
+  const t0 = today(), w = Skills.weekStats(S.hist, t0), c = w.cur, p = w.prev, av = availSkills(), accC = pct(c.ok, c.total), accP = pct(p.ok, p.total);
+  const maxSec = Math.max(60, ...w.days.map(d => d.sec));
+  const bars = w.days.map(d => `<div class="bcol${d.date === t0 ? ' now' : ''}"><div class="bv">${d.sec ? fmtMin(d.sec) : ''}</div><div class="bt"><i style="height:${d.sec ? Math.max(8, Math.round(d.sec / maxSec * 100)) : 0}%"></i></div><div class="bl">${dayLabel(d.date, { weekday: 'short' })}</div></div>`).join('');
+  const radarItems = av.filter(k => k !== 'chess').map(k => ({ icon: SK[k].icon, color: SK[k].color, v: S.skills[k].lvl }));
+  const rows = av.map(k => { const sk = S.skills[k], cw = c.sk[k] || [0, 0], pw = p.sk[k] || [0, 0], a = pct(cw[0], cw[1]), b = pct(pw[0], pw[1]);
+    return `<div class="skrow" style="--c:${SK[k].color}"><div class="ico">${SK[k].icon}</div><div class="nm"><b>${P(SK[k].name)}</b><div class="pips">${[1, 2, 3, 4, 5].map(i => `<i class="${i <= sk.lvl ? 'on' : ''}"></i>`).join('')}</div></div>
+      <div class="num">${cw[1] ? `<b>${a}%</b> <small>${cw[0]}/${cw[1]}</small> ${trend(a, b, '%')}` : '<small>—</small>'}</div></div>`; }).join('');
+  const cand = av.filter(k => S.skills[k].n >= 10).sort((x, y) => (S.skills[x].lvl - S.skills[y].lvl) || (S.skills[x].ok / S.skills[x].n - S.skills[y].ok / S.skills[y].n));
+  const weak = cand[0], enough = c.ses > 0 || S.stat.lessons >= 3;
+  root.innerHTML = topBar() + `<div class="page report">
+    <button class="back" data-a="goto" data-t="profile">← ${tt('Назад', 'Назад', `Zpět`, `Back`)}</button>
+    <div class="h1">📊 ${tt('Отчёт для родителя', 'Справаздача для бацькоў', `Přehled pro rodiče`, `Parent report`)}</div>
+    <div class="rs" style="margin:-6px 2px 10px">${esc(S.name)} · ${dayLabel(w.days[0].date, { day: 'numeric', month: 'short' })} – ${dayLabel(t0, { day: 'numeric', month: 'short' })}</div>
+    <div class="rp-cards">
+      <div class="rp-card"><small>${tt('Время', 'Час', `Čas`, `Time`)}</small><b>${fmtMin(c.sec)} <u>${tt('мин', 'хв', `min`, `min`)}</u></b>${trend(Math.round(c.sec / 60), Math.round(p.sec / 60), ` ${tt('мин', 'хв', `min`, `min`)}`)}</div>
+      <div class="rp-card"><small>${tt('Дней занятий', 'Дзён заняткаў', `Dnů cvičení`, `Days practised`)}</small><b>${c.played}<u>/7</u></b>${trend(c.played, p.played)}</div>
+      <div class="rp-card"><small>${tt('Занятий', 'Заняткаў', `Tréninků`, `Sessions`)}</small><b>${c.ses}</b>${trend(c.ses, p.ses)}</div>
+      <div class="rp-card"><small>${tt('Точность', 'Дакладнасць', `Přesnost`, `Accuracy`)}</small><b>${accC == null ? '—' : accC + '%'}</b>${trend(accC, accP, '%')}</div>
+    </div>
+    <div class="rs" style="margin:2px 2px 10px">${tt('Стрелки — изменение к прошлой неделе. Точность считается по ответам с первой попытки.', 'Стрэлкі — змена да мінулага тыдня. Дакладнасць лічыцца па адказах з першай спробы.', `Šipky ukazují změnu oproti minulému týdnu. Přesnost se počítá z odpovědí na první pokus.`, `Arrows show the change since last week. Accuracy counts first-try answers.`)}</div>
+    <div class="sect">${tt('Минуты по дням', 'Хвіліны па днях', `Minuty po dnech`, `Minutes per day`)}</div><div class="bars">${bars}</div>
+    <div class="sect">${tt('Паспорт навыков', 'Пашпарт навыкаў', `Pas dovedností`, `Skills passport`)}</div>
+    <div class="radar">${radarItems.length >= 3 ? radarSVG(radarItems) : ''}</div>
+    <div class="rs" style="text-align:center;margin-bottom:8px">${tt('Уровень навыка от 1 до 5 (растёт, когда ≥ 80% ответов верные)', 'Узровень навыку ад 1 да 5 (расце, калі ≥ 80% адказаў правільныя)', `Úroveň dovednosti od 1 do 5 (roste, když je správně ≥ 80 % odpovědí)`, `Skill level from 1 to 5 (rises when ≥ 80% of answers are correct)`)}</div>
+    ${rows}
+    <div class="sect">${tt('Чем помочь дома', 'Чым дапамагчы дома', `Jak pomoci doma`, `How to help at home`)}</div>
+    <div class="tip">${enough && weak ? `<b>${tt('Сейчас стоит поддержать', 'Зараз варта падтрымаць', `Teď stojí za to podpořit`, `Worth supporting now`)}: ${SK[weak].icon} ${P(SK[weak].name)}</b><br>${P(TIPS[weak])}`
+      : tt('Пока мало данных. После нескольких занятий здесь появится картина и совет.', 'Пакуль мала даных. Пасля некалькіх заняткаў тут з’явіцца карціна і парада.', `Zatím málo dat. Po několika trénincích tu uvidíte přehled i radu.`, `Not much data yet. After a few sessions the picture and a tip will appear here.`)}</div>
+    <div class="row2" style="margin-top:12px"><button class="btn ghost sm" data-a="print">🖨 ${tt('Печать', 'Друк', `Tisk`, `Print`)}</button></div></div>` + tabs('');
 }
 
 /* ---------- занятие ---------- */
@@ -558,6 +638,7 @@ const A = {
       text: `<div class="wk">${names.map(([w, on]) => `<span class="${on ? 'on' : ''}"><i>${on ? '🔥' : '·'}</i>${w}</span>`).join('')}</div>` + tt('Пропущенный день ничего не сбрасывает — просто возвращайся, когда захочется.', 'Прапушчаны дзень нічога не скідае — проста вяртайся, калі захочацца.', `Vynechaný den nic nenuluje – prostě se vrať, až budeš chtít.`, `A missed day resets nothing – just come back whenever you like.`),
       btns: [{ t: tt('Понятно', 'Зразумела', `Jasné`, `Got it`), c: 'ghost', f: () => {} }] });
   },
+  print() { window.print(); },
   sound() { S.sound = !S.sound; save(); sfx.tap(); render(); },
   rename() { const n = (prompt(tt('Как тебя зовут?', 'Як цябе клічуць?', `Jak se jmenuješ?`, `What is your name?`), S.name) || '').trim(); if (n) { S.name = n.slice(0, 14); save(); render(); } },
   reset() { modal({ icon: '🗑', title: tt('Начать заново?', 'Пачаць зноў?', 'Začít znovu?', 'Start over?'), text: tt('Весь прогресс, монеты и питомцы будут удалены' + (fbUser ? ' (и в облаке тоже).' : '.'), 'Увесь прагрэс, манеты і гадаванцы будуць выдалены' + (fbUser ? ' (і ў воблаку таксама).' : '.'),
