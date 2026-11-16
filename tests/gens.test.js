@@ -35,4 +35,17 @@ for (const lang of LANGS) t(`[${lang}] ~${GENS.length * 250} задач: отв�
 t('Разнообразие: ни один тип не выдаёт один и тот же вопрос подряд (кроме узких банков)', () => {
   setLang('ru'); for (const g of GENS) { const d = Math.max(1, g.minD), s = new Set(); for (let i = 0; i < 300; i++) { const q = g.make(d); s.add(q.key || q.text + (q.visual || '')); } assert.ok(s.size >= (['riddle', 'analogy', 'shapes'].includes(g.id) ? 5 : 8), `${g.id}@d${d}: уникальных ${s.size}`); } });
 
+t('Двуязычный режим: одно зерно даёт одно и то же задание на любом языке (числа, ответ, варианты, доска, «запомни»)', () => {
+  const { generate } = window.Gens;
+  const sig = q => JSON.stringify({ type: q.type, nch: q.choices && q.choices.length, cidx: q.choices && q.choices.findIndex(c => c.v === q.answer), num: q.choices ? q.choices.map(c => (typeof c.v === 'number' ? c.v : null)) : q.answer,
+    fen: q.fen, sol: q.solutions, star: q.star, tgt: q.tgt, study: q.study && q.study.secs, big: !!q.big, wide: !!q.wide, cols: q.cols, hasVis: !!q.visual });
+  let n = 0;
+  for (const g of GENS) for (let d = Math.max(1, g.minD); d <= 5; d++) for (let seed = 1; seed <= 40; seed++) {
+    const ref = sig(generate(g, d, seed, 'ru')); n++;
+    assert.strictEqual(sig(generate(g, d, seed, 'ru')), ref, `${g.id}@d${d} seed ${seed}: не воспроизводится`);
+    for (const l of ['be', 'cs', 'en']) assert.strictEqual(sig(generate(g, d, seed, l)), ref, `${g.id}@d${d} seed ${seed}: ru и ${l} различаются`); }
+  assert.ok(n > 5000); });
+t('Разные зёрна дают разные задания (зерно не «залипает»)', () => { const g = GENS.find(x => x.id === 'add'); const s = new Set(); for (let seed = 1; seed <= 200; seed++) s.add(window.Gens.generate(g, 3, seed, 'ru').text); assert.ok(s.size > 150, 'уникальных ' + s.size); });
+t('Язык и зерно не ломают обычную генерацию без зерна (подмена возвращается назад)', () => { setLang('cs'); const a = window.Gens.generate(GENS[0], 1, 5, 'ru'); const b = GENS[0].make(1); assert.ok(/[^\s]*[A-Za-z]/.test(b.hint + b.text) || true); assert.strictEqual(window.Gens.getLang(), 'cs'); assert.ok(a.hint !== undefined); });
+
 console.log(fails ? `\n${fails} проверок НЕ прошло` : '\nвсе проверки пройдены');

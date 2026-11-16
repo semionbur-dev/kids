@@ -50,6 +50,9 @@ async function langPass(b, locale, lang) {
   await p.evaluate(() => { const u = window.__umniki, S = u.S(), K = window.Skills, t = K.dayStr(new Date()); K.addHist(S.hist, t, { sec: 700, ses: 2, skill: 'numbers', ok: 6, total: 8 }); K.addHist(S.hist, K.addDays(t, -9), { sec: 100, ses: 1, skill: 'logic', ok: 2, total: 4 });
     for (const k of Object.keys(S.skills)) { S.skills[k].n = 20; S.skills[k].ok = 10 + (k.length % 3) * 3; } S.stat.lessons = 5; S.chessLessons = { rook: 3 }; });
   for (const r of ['report', 'parent', 'profile', 'awards', 'shop', 'chess']) { await p.evaluate(r => { window.__umniki.unlockParent(); window.__umniki.setR(r); window.__umniki.render(); }, r); await scan(r); }
+  await p.evaluate(s => { window.__umniki.S().bil.second = s; window.__umniki.S().bil.mode = 'mix'; }, lang === 'cs' ? 'ru' : 'cs');
+  for (const r of ['parent', 'report']) { await p.evaluate(r => { window.__umniki.unlockParent(); window.__umniki.setR(r); window.__umniki.render(); }, r); await scan(r + '+bil'); }
+  await p.evaluate(() => { window.__umniki.S().bil.mode = 'immersion'; window.__umniki.unlockParent(); window.__umniki.setR('parent'); window.__umniki.render(); }); await scan('parent+immersion'); await p.evaluate(() => { window.__umniki.S().bil.second = ''; });
   await p.evaluate(() => { window.__umniki.A.parentzone(); }); await scan('pin-enter');
   await p.evaluate(() => { const S = window.__umniki.S(); S.parent.pin = ''; window.__umniki.A.parentzone(); }); await scan('pin-set');
   await p.evaluate(() => { const K = window.Skills, S = window.__umniki.S(); S.parent.limit = 10; K.addHist(S.hist, K.dayStr(new Date()), { sec: 700 }); window.__umniki.setR('timeup'); window.__umniki.render(); }); await scan('timeup');
@@ -171,11 +174,60 @@ async function pinForgot(b) {
   ok(p.errs.length === 0, 'нет ошибок в консоли (сброс PIN)'); await ctx.close();
 }
 
+/* ---------- 5. двуязычный режим ---------- */
+async function bilingual(b) {
+  const p = await newPage(b, 'cs-CZ'); await p.fill('#nm', 'Anna'); await p.tap('[data-a=obstart]');
+  const U = (fn, arg) => p.evaluate(fn, arg);
+  await U(() => { window.__umniki.unlockParent(); window.__umniki.setR('parent'); window.__umniki.render(); });
+  ok(await U(() => /dvojjazyčný režim/i.test(document.body.innerText) && document.querySelectorAll('[data-a=bilsecond]').length === 4), 'родительская зона (чешский интерфейс): выбор второго языка — «выкл» и три других языка (основной не предлагается)');
+  await p.tap('[data-a=bilsecond][data-l=ru]'); ok(await U(() => window.__umniki.S().bil.second === 'ru' && !!document.querySelector('[data-a=bilshare]')), 'второй язык — русский; появились режим и доли');
+  const sessionLangs = async (skill = 'numbers') => { const r = await U(s => { const u = window.__umniki; u.A.skill({ dataset: { s } }); const L = u.L(); const langs = L.queue.map(q => q.lang), first = L.queue[0]; u.A.home(); return langs; }, skill); return r; };
+  // точная доля в среднем: 30% × 8 заданий × 25 занятий = 60
+  await p.tap('[data-a=bilshare][data-m="30"]'); let on = 0, tot = 0; for (let i = 0; i < 25; i++) { const l = await sessionLangs(i % 2 ? 'logic' : 'numbers'); on += l.filter(x => x === 'ru').length; tot += l.length; await U(() => { window.__umniki.unlockParent(); }); }
+  ok(Math.abs(on - 60) <= 1 && tot === 200, `доля 30%: на втором языке ${on} из ${tot} (ожидается 60 ±1)`);
+  await U(() => { window.__umniki.S().bil.share = 50; window.__umniki.S().bil.carry = 0; }); const l50 = await sessionLangs(); ok(l50.filter(x => x === 'ru').length === 4, 'доля 50%: ровно 4 из 8 заданий на втором языке');
+  await U(() => { window.__umniki.S().bil.mode = 'immersion'; }); const lim = await sessionLangs(); ok(lim.every(x => x === 'ru'), 'погружение: все задания на втором языке');
+  await U(() => { window.__umniki.S().bil.mode = 'mix'; window.__umniki.S().bil.share = 80; window.__umniki.S().bil.carry = 0; });
+  // кнопка «не понял»: то же задание на другом языке, без штрафа
+  await p.tap('[data-a=skill][data-s=numbers]');
+  let found = false; for (let g = 0; g < 8 && !found; g++) { found = await U(() => { const q = window.__umniki.L().queue[0]; return q.lang === 'ru'; }); if (!found) { await answerNow(p); await p.tap('[data-a=next]'); } }
+  ok(found, 'в миксе 80% встретилось задание на втором языке');
+  const before = await U(() => { const q = window.__umniki.L().queue[0], c = q.choices ? q.choices.map(x => x.v) : null; return { text: document.querySelector('.qtext').innerText, tag: document.querySelector('.tag.lg').innerText, c, ans: q.answer, type: q.type }; });
+  ok(/Русский/.test(before.tag) && (!/[A-Za-zА-Яа-я]/.test(before.text) || /[А-Яа-я]/.test(before.text)), 'задание на русском, метка «🌍 Русский»: ' + before.text.slice(0, 40));
+  if (before.type === 'choice') await p.tap('[data-a=pick][data-i="1"]');
+  await p.tap('[data-a=alt]');
+  const after = await U(() => { const L = window.__umniki.L(), q = L.queue[0]; return { text: document.querySelector('.qtext').innerText, tag: document.querySelector('.tag.lg').innerText, c: q.choices ? [...document.querySelectorAll('.opt')].length : null, sel: L.sel, tap: Object.values(window.__umniki.S().hist).reduce((a, d) => a + ((d.l2 || {}).tap || 0), 0) }; });
+  ok(!/[А-Яа-я]/.test(after.text) && /Čeština/.test(after.tag), '«не понял»: то же задание на чешском, метка «🌍 Čeština»: ' + after.text.slice(0, 40));
+  ok(before.type !== 'choice' || (after.c === before.c.length && after.sel === 1), 'варианты ответа на месте, выбор сохранён');
+  ok(after.tap === 1, 'нажатие «не понял» записано в историю');
+  await p.tap('[data-a=alt]'); await p.tap('[data-a=alt]'); ok(await U(() => Object.values(window.__umniki.S().hist).reduce((a, d) => a + ((d.l2 || {}).tap || 0), 0) === 1), 'повторные нажатия на то же задание не раздувают счётчик');
+  const mist0 = await U(() => window.__umniki.L().mistakes); await answerNow(p); const st = await U(() => { const L = window.__umniki.L(); return { mistakes: L.mistakes, ok: L.ok, firstOK: L.firstOK }; });
+  ok(st.ok && st.mistakes === mist0, '«не понял» ничего не стоит: ответ засчитывается как обычно');
+  await p.tap('[data-a=next]');
+  // повтор после ошибки остаётся на том же языке
+  let langRetry = null; for (let g = 0; g < 6; g++) { const q = await U(() => { const q = window.__umniki.L().queue[0]; return { lang: q.lang, seed: q.seed != null }; }); if (q.lang === 'ru' && q.seed) { await answerNow(p, false); await p.tap('[data-a=next]'); langRetry = await U(() => window.__umniki.L().queue.filter(x => x.retry).map(x => x.lang)); break; } await answerNow(p); await p.tap('[data-a=next]'); }
+  ok(langRetry && langRetry.every(l => l === 'ru'), 'повтор после ошибки приходит на том же (втором) языке');
+  await p.tap('[data-a=quit]'); await p.tap('[data-mi="1"]');
+  // шахматы и память тоже переключаются
+  for (const sk of ['memory', 'chess', 'attention']) { await U(s => { window.__umniki.S().bil.mode = 'immersion'; if (s === 'chess') window.__umniki.A.cpractice(); else window.__umniki.A.skill({ dataset: { s } }); }, sk); const info = await U(() => { const L = window.__umniki.L(), q = L.queue[0]; return { gid: q.gid, lang: q.lang, hasGlobe: !!document.querySelector('[data-a=alt]') }; });
+    ok(info.lang === 'ru' && info.hasGlobe, `${sk}: задание на втором языке, кнопка 🌐 есть (${info.gid})`); await U(() => { window.__umniki.A.alt(); }); ok(await U(() => !!document.querySelector('.lesson')), `${sk}: переключение языка не ломает экран`); await U(() => { const L = window.__umniki.L(); L.alt = false; window.__umniki.A.home(); }); }
+  // уроки шахмат — только на основном языке (без глобуса)
+  await U(() => window.__umniki.A.clesson({ dataset: { id: 'rook' } })); await p.tap('[data-a=begin]'); ok(await U(() => !document.querySelector('[data-a=alt]')), 'уроки шахмат: кнопки 🌐 нет (только основной язык)'); await U(() => window.__umniki.A.home());
+  // адаптация доли: много «не понял» за неделю → доля ниже
+  await U(() => { const S = window.__umniki.S(), K = window.Skills; S.bil.mode = 'mix'; S.bil.share = 50; S.bil.adaptedAt = ''; S.bil.adapt = true; S.hist = {}; K.addHist(S.hist, K.dayStr(new Date()), { l2n: 20, l2ok: 12, tap: 10 }); });
+  await U(() => window.__umniki.A.skill({ dataset: { s: 'logic' } })); ok(await U(() => window.__umniki.S().bil.share === 30 && !!window.__umniki.S().bil.adaptedAt), 'адаптация: 50% «не понял» за неделю → доля снижена до 30%'); await U(() => window.__umniki.A.home());
+  // отчёт: блок про второй язык
+  await U(() => { const S = window.__umniki.S(), K = window.Skills; K.addHist(S.hist, K.dayStr(new Date()), { sec: 600, ses: 2, skill: 'numbers', ok: 5, total: 8, hard: 'numbers' }); window.__umniki.unlockParent(); window.__umniki.setR('report'); window.__umniki.render(); });
+  const rep = await U(() => document.body.innerText); ok(/druhý jazyk: Русский/i.test(rep) && /úloh ve druhém jazyce/i.test(rep) && /nerozumím/i.test(rep) && /upraven automaticky/i.test(rep), 'отчёт: блок «Druhý jazyk»: задания, точность, «не понял», режим, автоподстройка');
+  ok(p.errs.length === 0, 'нет ошибок в консоли (двуязычный режим) ' + (p.errs[0] || '')); await p.context().close();
+}
+
 (async () => {
   const b = await chromium.launch();
   const only = process.argv[2];
   if (!only || only === 'lang') for (const [locale, lang] of [['ru-RU', 'ru'], ['be-BY', 'be'], ['cs-CZ', 'cs'], ['en-US', 'en']]) await langPass(b, locale, lang);
   if (!only || only === 'game') { await gameLoop(b); await cloud(b); }
   if (!only || only === 'parent') { await parentZone(b); await pinForgot(b); }
+  if (!only || only === 'bil') await bilingual(b);
   await b.close(); console.log(fails ? `\n${fails} проверок НЕ прошло` : '\nвсе проверки пройдены');
 })();

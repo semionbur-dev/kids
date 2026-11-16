@@ -2,7 +2,7 @@
 /* Новые игры: внимание (5 типов), память (6 типов, с экраном «запомни»), пространство (робот, зеркало).
    Задачи без текста в картинке: условия — эмодзи, цифры и сетки; слова только в формулировке (4 языка). */
 (() => {
-const { GENS, gen, mkChoice, mkNum, numOpts, byD, BL, rnd, pick, shuffle, t } = window.Gens;
+const { GENS, gen, mkChoice, mkNum, numOpts, byD, BL, rand, rnd, pick, shuffle, t } = window.Gens;
 
 const EMO = ['🐶', '🐱', '🐭', '🐰', '🦊', '🐻', '🐼', '🐸', '🐵', '🐔', '🍎', '🍌', '🍇', '🍓', '🍊', '🍉', '⚽', '🚗', '🎈', '⭐', '🌸', '🔔', '🎁', '🧸'];
 const DOTS = ['🔴', '🔵', '🟢', '🟡', '🟣', '🟠'];
@@ -20,7 +20,7 @@ const uniq4 = (correct, distract, fill) => {   // correct + до 3 разных 
 // похожий ряд: меняем один элемент или переставляем соседей
 function variant(seq, palette) {
   const s = seq.slice();
-  if (Math.random() < 0.5 && s.length > 1) { const i = rnd(0, s.length - 2); if (s[i] !== s[i + 1]) { [s[i], s[i + 1]] = [s[i + 1], s[i]]; return s; } }
+  if (rand() < 0.5 && s.length > 1) { const i = rnd(0, s.length - 2); if (s[i] !== s[i + 1]) { [s[i], s[i + 1]] = [s[i + 1], s[i]]; return s; } }
   const i = rnd(0, s.length - 1); let x; do { x = pick(palette); } while (x === s[i]); s[i] = x; return s;
 }
 
@@ -34,7 +34,7 @@ gen('attention', 'count', 1, d => {
   return byD(d, { text: t(`Сколько ${target} на картинке?`, `Колькі ${target} на малюнку?`, `Kolik ${target} je na obrázku?`, `How many ${target} are in the picture?`),
     visual: `<div class="emogrid" style="font-size:${fs}px">${shuffle(items).map(e => `<span>${e}</span>`).join('')}</div>`, answer: c,
     hint: t('Считай по рядам и трогай каждый предмет пальцем.', 'Лічы па радах і дакранайся да кожнага прадмета пальцам.', 'Počítej po řádcích a ukazuj na každý předmět prstem.', 'Count row by row and touch each item with your finger.'),
-    key: 'a' + target + items.slice().sort().join('') + Math.random().toString(36).slice(2, 6),
+    key: 'a' + target + items.slice().sort().join('') + rand().toString(36).slice(2, 6),
     explain: t(`Всего ${target}: ${c}.`, `Усяго ${target}: ${c}.`, `Celkem ${target}: ${c}.`, `${target} in total: ${c}.`) }, numOpts(c));
 });
 

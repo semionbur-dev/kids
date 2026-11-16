@@ -1,6 +1,6 @@
 'use strict';
 (() => {
-const { GENS, LANGS, rnd, pick, shuffle, esc, t: tt, setLang, getLang } = window.Gens;
+const { GENS, LANGS, rnd, pick, shuffle, esc, t: tt, setLang, getLang, generate } = window.Gens;
 const P = pair => pair[LANGS.indexOf(getLang())];
 const LANG_NAMES = { be: 'Беларуская', ru: 'Русский', cs: 'Čeština', en: 'English' };
 const langOk = l => (LANGS.includes(l) ? l : 'ru');
@@ -63,7 +63,7 @@ const ACH = [
 /* ======================== Состояние ======================== */
 const KEY = 'umniki.v1';
 const defState = () => ({ name: '', pet: '', pets: [], hat: '', hats: [], coins: 0, xp: 0, ach: {},
-  stat: { lessons: 0, correct: 0, perfect: 0, bestCombo: 0, routes: 0 }, starsTotal: 0, chessLessons: {}, parent: Skills.newParent(), skills: Skills.newSkills(), hist: {}, route: null,
+  stat: { lessons: 0, correct: 0, perfect: 0, bestCombo: 0, routes: 0 }, starsTotal: 0, chessLessons: {}, parent: Skills.newParent(), bil: Skills.newBil(), skills: Skills.newSkills(), hist: {}, route: null,
   sound: true, recent: [], ts: 0, lang: (/^(be|cs|en|ru)/i.exec(navigator.language || '') || ['ru'])[0].toLowerCase() });
 let S;
 const OLD_KEYS = ['hearts', 'heartAt', 'streak', 'bestStreak', 'lastDay', 'todayDate', 'todayXp', 'goalPaid'];
@@ -74,7 +74,7 @@ function load() {
   if (S.starsTotal === undefined || (raw && raw.done && !raw.starsTotal)) {   // перенос звёзд из старых «уроков»
     S.starsTotal = Math.max(S.starsTotal || 0, Object.values((raw && raw.done) || {}).reduce((a, arr) => a + (arr || []).reduce((x, y) => x + (y || 0), 0), 0)); }
   if (!S.chessLessons || typeof S.chessLessons !== 'object') S.chessLessons = {};
-  S.parent = Skills.fixParent(S.parent);
+  S.parent = Skills.fixParent(S.parent); S.bil = Skills.fixBil(S.bil);
   S.skills = Skills.fixSkills(S.skills); if (!S.hist || typeof S.hist !== 'object') S.hist = {};
   for (const k of [...OLD_KEYS, 'done']) delete S[k];
   S.lang = langOk(S.lang);
@@ -92,6 +92,8 @@ const weekCount = () => Skills.daysPlayedIn(S.hist, today(), 7);
 const pad = n => String(n).padStart(2, '0');
 /* родительская зона и лимит времени (F10) */
 let PN = null, parentOK = false, pinFails = 0, pinLockUntil = 0, pinResetPending = false;
+const bilOn = () => Skills.bilActive(S.bil, S.lang);
+const otherLang = q => (q.lang === S.lang ? S.bil.second : S.lang);
 const limitLeft = () => Skills.limitLeft(S.parent, S.hist, today(), L && R === 'lesson' ? L.sec : 0);
 const limitHit = () => limitLeft() <= 0;
 const minsLeft = () => Math.max(1, Math.ceil(limitLeft() / 60));
@@ -134,14 +136,18 @@ function modal({ icon = '', title = '', text = '', btns = [] }) {
 const closeModal = () => { const m = $('#modal'); m.innerHTML = ''; m._btns = null; };
 
 /* ======================== Построение занятий ======================== */
-function makeQ(g, d) { const q = g.make(d); q.topic = g.topic; q.skill = Skills.SKILL_OF[g.id]; q.gid = g.id; q.d = d; return q; }
+/* Каждое задание создаётся с «зерном» и языком: с тем же зерном его можно воспроизвести на другом языке (кнопка «не понял») */
+function makeQ(g, d, lang) {
+  const seed = (Math.random() * 4294967296) >>> 0, lg = lang || S.lang, q = generate(g, d, seed, lg);
+  q.topic = g.topic; q.skill = Skills.SKILL_OF[g.id]; q.gid = g.id; q.d = d; q.seed = seed; q.lang = lg; return q;
+}
 const sigOf = q => q.gid + '|' + (q.key || q.text + (q.visual || ''));
 /* Новая задача из генератора g, которой ещё не было в этом занятии и (по возможности) в недавней истории.
    Если свежей не нашлось — возвращает ту, что видели давнее всего. */
-function freshQ(g, d, seen) {
+function freshQ(g, d, seen, lang) {
   const recent = S.recent || []; let best = null;
   for (let t = 0; t < 25; t++) {
-    const q = makeQ(g, d), s = sigOf(q);
+    const q = makeQ(g, d, lang), s = sigOf(q);
     if (seen.has(s)) continue;
     const age = recent.lastIndexOf(s);          // -1 = не встречалась; меньше индекс = давнее
     if (age < 0) return { q, fresh: true };
@@ -149,7 +155,7 @@ function freshQ(g, d, seen) {
   }
   return best;
 }
-function buildSet(pool, d, n) {
+function buildSet(pool, d, n, langs) {
   const out = [], seen = new Set(); let bag = [], last = null;
   for (let i = 0; i < n; i++) {
     if (!bag.length) bag = shuffle(pool);
@@ -159,12 +165,12 @@ function buildSet(pool, d, n) {
     const cands = [primary, ...shuffle(pool.filter(x => x !== primary && x !== last))];
     let chosen = null, stale = null;
     for (const g of cands) {
-      const r = freshQ(g, Math.max((i < 2 && d > 1 && n >= 6) ? d - 1 : d, g.minD), seen);
+      const r = freshQ(g, Math.max((i < 2 && d > 1 && n >= 6) ? d - 1 : d, g.minD), seen, langs ? langs[i] : undefined);
       if (!r) continue;
       if (r.fresh) { chosen = r.q; break; }
       if (!stale || r.age < stale.age) stale = r;
     }
-    const q = chosen || (stale ? stale.q : makeQ(primary, d));
+    const q = chosen || (stale ? stale.q : makeQ(primary, d, langs ? langs[i] : undefined));
     last = GENS.find(x => x.id === q.gid); seen.add(sigOf(q)); out.push(q);
   }
   return out;
@@ -309,6 +315,15 @@ function rParent() {
     <div class="sect">⏱ ${tt('Время занятий в день', 'Час заняткаў у дзень', `Čas cvičení za den`, `Daily practice time`)}</div>
     <div class="chips">${LIMITS.map(m => `<button class="chip2${lim === m ? ' on' : ''}" data-a="limit" data-m="${m}">${m ? `${m} ${tt('мин', 'хв', `min`, `min`)}` : tt('Без лимита', 'Без ліміту', `Bez limitu`, `No limit`)}</button>`).join('')}</div>
     <div class="rs" style="margin:4px 2px 8px">${tt(`Сегодня: ${used} мин`, `Сёння: ${used} хв`, `Dnes: ${used} min`, `Today: ${used} min`)}${lim ? ` ${tt('из', 'з', `z`, `of`)} ${lim + ex}` : ''}. ${tt('Когда время выйдет, занятие мягко завершится, и ребёнок увидит экран отдыха.', 'Калі час скончыцца, занятак мякка завяршыцца, і дзіця ўбачыць экран адпачынку.', `Až čas vyprší, trénink se jemně ukončí a dítě uvidí obrazovku odpočinku.`, `When time runs out the session ends gently and the child sees a rest screen.`)}</div>
+    <div class="sect">🌍 ${tt('Двуязычный режим', 'Двумоўны рэжым', `Dvojjazyčný režim`, `Bilingual mode`)}</div>
+    <div class="rs" style="margin:0 2px 6px">${tt('Основной язык', 'Асноўная мова', `Hlavní jazyk`, `Main language`)}: <b>${LANG_NAMES[S.lang]}</b>. ${tt('Второй язык', 'Другая мова', `Druhý jazyk`, `Second language`)}:</div>
+    <div class="chips"><button class="chip2${!S.bil.second ? ' on' : ''}" data-a="bilsecond" data-l="">${tt('Выкл', 'Выкл.', `Vypnuto`, `Off`)}</button>${LANGS.filter(l => l !== S.lang).map(l => `<button class="chip2${S.bil.second === l ? ' on' : ''}" data-a="bilsecond" data-l="${l}">${LANG_NAMES[l]}</button>`).join('')}</div>
+    ${S.bil.second ? `<div class="chips" style="margin-top:8px"><button class="chip2${S.bil.mode === 'mix' ? ' on' : ''}" data-a="bilmode" data-m="mix">${tt('Микс', 'Мікс', `Mix`, `Mix`)}</button><button class="chip2${S.bil.mode === 'immersion' ? ' on' : ''}" data-a="bilmode" data-m="immersion">${tt('Погружение', 'Пагружэнне', `Ponoření`, `Immersion`)}</button></div>
+      ${S.bil.mode === 'mix' ? `<div class="rs" style="margin:8px 2px 4px">${tt('Доля заданий на втором языке', 'Доля заданняў на другой мове', `Podíl úloh ve druhém jazyce`, `Share of tasks in the second language`)}:</div>
+        <div class="chips">${Skills.SHARES.map(m => `<button class="chip2${S.bil.share === m ? ' on' : ''}" data-a="bilshare" data-m="${m}">${m}%</button>`).join('')}</div>
+        <div class="chips" style="margin-top:8px"><button class="chip2${S.bil.adapt ? ' on' : ''}" data-a="biladapt">${S.bil.adapt ? '✓ ' : ''}${tt('Подстраивать долю автоматически', 'Падладжваць долю аўтаматычна', `Upravovat podíl automaticky`, `Adjust the share automatically`)}</button></div>`
+        : `<div class="rs" style="margin:8px 2px 0">${tt('Погружение: все задания на втором языке. Лучше открывать с 7 лет — младшие ещё плохо читают.', 'Пагружэнне: усе заданні на другой мове. Лепш адкрываць з 7 гадоў — меншыя яшчэ дрэнна чытаюць.', `Ponoření: všechny úlohy ve druhém jazyce. Doporučujeme od 7 let – mladší děti ještě špatně čtou.`, `Immersion: all tasks in the second language. Best from age 7 – younger children do not read well yet.`)}</div>`}
+      <div class="rs" style="margin:8px 2px 0">${tt('Язык каждого задания выбирается целиком. Кнопка 🌐 показывает то же задание на другом языке — без штрафа.', 'Мова кожнага задання выбіраецца цалкам. Кнопка 🌐 паказвае тое ж заданне на іншай мове — без штрафу.', `Jazyk každé úlohy se volí celý. Tlačítko 🌐 ukáže stejnou úlohu v druhém jazyce – bez trestu.`, `Each task is shown fully in one language. The 🌐 button shows the same task in the other language – no penalty.`)}</div>` : ''}
     <div class="sect">${tt('Аккаунт', 'Акаўнт', `Účet`, `Account`)}</div>
     ${fbUser ? `<div class="row2"><div class="cloud">☁️ ${esc(fbUser.email || '')}<small>${cloudText()}</small></div><button class="btn ghost sm" data-a="logout" style="width:auto">${tt('Выйти', 'Выйсці', `Odhlásit`, `Sign out`)}</button></div>`
       : `<div class="row2"><button class="btn blu sm" data-a="login">🔑 ${tt('Войти через Google и сохранить прогресс', 'Увайсці праз Google і захаваць прагрэс', `Přihlásit se přes Google a uložit postup`, `Sign in with Google and save progress`)}</button></div>`}
@@ -379,7 +394,7 @@ const TIPS = {
     'Play a few games with just a king and a rook, or solve mate-in-one on a real board. Name the pieces aloud – the moves are easier to remember.'],
 };
 const fmtMin = sec => (sec > 0 && sec < 60 ? '<1' : String(Math.round(sec / 60)));
-const pct = (o, t) => (t > 0 ? Math.round(100 * o / t) : null);
+const pct = (o, t) => (t > 0 ? Math.min(100, Math.max(0, Math.round(100 * o / t))) : null);
 function dayLabel(dateStr, opt) { try { return new Intl.DateTimeFormat(getLang(), opt).format(Skills.parseDay(dateStr)); } catch (e) { return dateStr; } }
 function trend(cur, prev, unit = '') {   // стрелка динамики к прошлой неделе
   if (cur == null || prev == null || (cur === 0 && prev === 0)) return '';
@@ -424,6 +439,19 @@ function rReport() {
     <div class="radar">${radarItems.length >= 3 ? radarSVG(radarItems) : ''}</div>
     <div class="rs" style="text-align:center;margin-bottom:8px">${tt('Уровень навыка от 1 до 5 (растёт, когда ≥ 80% ответов верные)', 'Узровень навыку ад 1 да 5 (расце, калі ≥ 80% адказаў правільныя)', `Úroveň dovednosti od 1 do 5 (roste, když je správně ≥ 80 % odpovědí)`, `Skill level from 1 to 5 (rises when ≥ 80% of answers are correct)`)}</div>
     ${rows}
+${S.bil.second ? (() => {
+      const l2 = c.l2, a2 = pct(l2.ok, l2.n), a1 = pct(c.ok - l2.ok, c.total - l2.n), rate = l2.n ? Math.round(100 * l2.tap / l2.n) : 0;
+      const hard = Object.entries(c.hard).sort((x, y) => y[1] - x[1]).slice(0, 3).map(([k, n]) => `${SK[k] ? SK[k].icon + ' ' + P(SK[k].name) : k} ×${n}`).join(', ');
+      return `<div class="sect">🌍 ${tt('Второй язык', 'Другая мова', `Druhý jazyk`, `Second language`)}: ${LANG_NAMES[S.bil.second]}</div>
+      <div class="rp-cards">
+        <div class="rp-card"><small>${tt('Заданий на втором языке', 'Заданняў на другой мове', `Úloh ve druhém jazyce`, `Tasks in the second language`)}</small><b>${l2.n}</b></div>
+        <div class="rp-card"><small>${tt('Точность на втором языке', 'Дакладнасць на другой мове', `Přesnost ve druhém jazyce`, `Accuracy in the second language`)}</small><b>${a2 == null ? '—' : a2 + '%'}</b><small>${tt('на основном', 'на асноўнай', `v hlavním`, `main`)}: ${a1 == null ? '—' : a1 + '%'}</small></div>
+        <div class="rp-card"><small>${tt('«Не понял»', '«Не зразумеў»', `„Nerozumím“`, `"Don't understand"`)}</small><b>${l2.tap}</b><small>${rate}% ${tt('от заданий', 'ад заданняў', `z úloh`, `of tasks`)}</small></div>
+        <div class="rp-card"><small>${tt('Режим', 'Рэжым', `Režim`, `Mode`)}</small><b style="font-size:20px">${S.bil.mode === 'mix' ? `${tt('Микс', 'Мікс', `Mix`, `Mix`)} ${S.bil.share}%` : tt('Погружение', 'Пагружэнне', `Ponoření`, `Immersion`)}</b></div>
+      </div>
+      ${hard ? `<div class="rs" style="margin:2px 2px 6px">${tt('Чаще всего непонятны задания', 'Часцей за ўсё незразумелыя заданні', `Nejčastěji nerozumí úlohám`, `Most often unclear`)}: ${hard}</div>` : ''}
+      ${S.bil.adaptedAt && Skills.addDays(S.bil.adaptedAt, 7) >= t0 ? `<div class="rs" style="margin:2px 2px 6px">⚙️ ${tt('Доля второго языка подстроена автоматически', 'Доля другой мовы падладжана аўтаматычна', `Podíl druhého jazyka byl upraven automaticky`, `The second-language share was adjusted automatically`)}.</div>` : ''}`;
+    })() : ''}
     <div class="sect">${tt('Чем помочь дома', 'Чым дапамагчы дома', `Jak pomoci doma`, `How to help at home`)}</div>
     <div class="tip">${enough && weak ? `<b>${tt('Сейчас стоит поддержать', 'Зараз варта падтрымаць', `Teď stojí za to podpořit`, `Worth supporting now`)}: ${SK[weak].icon} ${P(SK[weak].name)}</b><br>${P(TIPS[weak])}`
       : tt('Пока мало данных. После нескольких занятий здесь появится картина и совет.', 'Пакуль мала даных. Пасля некалькіх заняткаў тут з’явіцца карціна і парада.', `Zatím málo dat. Po několika trénincích tu uvidíte přehled i radu.`, `Not much data yet. After a few sessions the picture and a tip will appear here.`)}</div>
@@ -447,7 +475,13 @@ function startSession(skill, opts = {}) {
   document.querySelectorAll('.confetti').forEach(e => e.remove());
   if (L) clearTimeout(L.timer);
   const lv = S.skills[skill].lvl, n = opts.n || QPL;
-  const qs = opts.lesson ? Chess.lessonTasks(opts.lesson, 5).map(q => Object.assign(q, { skill: 'chess' })) : buildSet(skillPool(skill, lv), lv, n);
+  let langs = null;
+  if (!opts.lesson && bilOn()) {
+    const ad = Skills.adaptShare(S.bil, Skills.weekStats(S.hist, today()).cur.l2, today());
+    if (ad.changed) { S.bil.share = ad.share; S.bil.adaptedAt = ad.adaptedAt; }
+    const plan = Skills.planLangs(n, S.bil); S.bil.carry = plan.carry; langs = plan.flags.map(f => (f ? S.bil.second : S.lang));
+  }
+  const qs = opts.lesson ? Chess.lessonTasks(opts.lesson, 5).map(q => Object.assign(q, { skill: 'chess' })) : buildSet(skillPool(skill, lv), lv, n, langs);
   L = { skill, lesson: opts.lesson || null, intro: !!opts.lesson, route: !!opts.route, queue: qs.slice(), total: qs.length, resolved: 0, added: 0, firstOK: 0, counted: 0, mistakes: 0, combo: 0, bestCombo: 0,
     answered: false, ok: false, sel: null, input: '', hint: false, studied: false, sec: 0, lastT: Date.now(), timer: null };
   R = 'lesson'; render();
@@ -456,7 +490,13 @@ function tickTime() { if (!L) return; const now = Date.now(); L.sec += Math.min(
 
 const plain = h => String(h).replace(/<[^>]*>/g, '');
 const qTag = q => { const k = SK[q.skill]; return `<span class="tag" style="--c:${k.color}">${k.icon} ${P(k.name)}</span>`; };
-const qHTML = q => `${qTag(q)}<div class="qtext">${q.text}</div>${q.visual ? `<div class="visual">${q.visual}</div>` : ''}`;
+/* Двуязычный режим: v — «вид» задания (на показанном сейчас языке); с тем же зерном числа и варианты те же, меняются только слова */
+function altOf(q) { if (!q.alt) q.alt = generate(GENS.find(x => x.id === q.gid), q.d, q.seed, otherLang(q)); return q.alt; }
+const view = q => (L && L.alt && q.seed != null && bilOn() ? altOf(q) : q);
+const viewLang = q => (L && L.alt && q.seed != null && bilOn() ? otherLang(q) : (q.lang || S.lang));
+const langChip = q => (bilOn() && q.seed != null ? `<span class="tag lg">🌍 ${LANG_NAMES[viewLang(q)]}</span>` : '');
+const globeBtn = q => (bilOn() && q.seed != null ? `<button class="btn ghost glb${L.alt ? ' on' : ''}" data-a="alt" aria-label="${tt('Не понял: показать на другом языке', 'Не зразумеў: паказаць на іншай мове', `Nerozumím: ukázat v druhém jazyce`, `Don't understand: show in the other language`)}">🌐</button>` : '');
+const qHTML = (q, v) => `${qTag(q)}${langChip(q)}<div class="qtext">${v.text}</div>${v.visual ? `<div class="visual">${v.visual}</div>` : ''}`;
 function lHead() {
   const prog = Math.round(L.resolved / (L.total + L.added) * 100), r = S.route;
   const right = L.route && r ? `${Math.min(r.done.length + 1, r.skills.length)}/${r.skills.length}` : SK[L.skill].icon;
@@ -465,10 +505,10 @@ function lHead() {
 /* экран «запомни»: показываем материал на несколько секунд, потом прячем (память) */
 function rStudy(q) {
   clearTimeout(L.timer);
-  const secs = q.study.secs;
-  root.innerHTML = `<div class="lesson">${lHead()}<div class="qwrap">${qTag(q)}<div class="qtext">${q.study.text}</div>
-    <div class="visual studyv">${q.study.html}</div><div class="cd"><i style="animation-duration:${secs}s"></i></div></div>
-    <div class="lfoot"><button class="btn grn" data-a="ready">${tt('Готов', 'Гатова', `Hotovo`, `Ready`)}</button></div></div>`;
+  const secs = q.study.secs, v = view(q);
+  root.innerHTML = `<div class="lesson">${lHead()}<div class="qwrap">${qTag(q)}${langChip(q)}<div class="qtext">${v.study.text}</div>
+    <div class="visual studyv">${v.study.html}</div><div class="cd"><i style="animation-duration:${secs}s"></i></div></div>
+    <div class="lfoot">${globeBtn(q)}<button class="btn grn" data-a="ready">${tt('Готов', 'Гатова', `Hotovo`, `Ready`)}</button></div></div>`;
   L.timer = setTimeout(() => { if (L && L.queue[0] === q && !L.studied && !L.answered) { L.studied = true; rLesson(); } }, secs * 1000);
 }
 /* объяснение урока по шахматам: фигура, её ходы на доске и короткое правило */
@@ -479,17 +519,17 @@ function rIntro() {
 }
 /* шахматное задание: касание фигуры → подсветка ходов → касание клетки */
 function rBoard(q) {
-  const E = Chess.E;
+  const E = Chess.E, v = view(q);
   if (L.bq !== q) { L.bq = q; L.bpos = E.parse(q.fen); L.bsel = null; L.bdests = []; L.tries = 0; }
   const rev = L.answered && !L.ok ? q.solutions[0] : null, hl = rev ? [E.idx(rev.slice(0, 2)), E.idx(rev.slice(2, 4))] : [];
   const board = Chess.boardHTML(L.bpos, { sel: L.bsel, dests: L.bdests, star: L.answered && L.ok ? null : q.star, tgt: q.tgt, hl, static: L.answered });
   let foot;
   if (L.answered) {
     foot = L.ok
-      ? `<div class="fb ok"><div class="msg">${mascot('sm', true)}<div><b>${pick(tt(['Верно!', 'Отлично!', 'Супер!', 'Блестяще!'], ['Правільна!', 'Выдатна!', 'Суперпа!', 'Бліскуча!'], ['Správně!', 'Výborně!', 'Super!', 'Skvělé!'], ['Correct!', 'Great job!', 'Super!', 'Brilliant!']))}</b>${esc(q.explain || '')}</div></div><button class="btn grn" data-a="next">${tt('Дальше', 'Далей', `Dál`, `Next`)}</button></div>`
-      : `<div class="fb no"><div class="msg">${mascot('sm')}<div><b>${tt('Ничего, бывает!', 'Нічога, бывае!', `Nic se neděje!`, `It happens!`)}</b>${tt('Правильный ход показан на доске.', 'Правільны ход паказаны на дошцы.', `Správný tah je ukázán na šachovnici.`, `The correct move is shown on the board.`)}<br>${esc(q.explain || '')}</div></div><button class="btn red" data-a="next">${tt('Понятно', 'Зразумела', `Jasné`, `Got it`)}</button></div>`;
-  } else foot = `<div class="lfoot"><button class="btn ghost" data-a="hint" style="flex:1">💡 ${HINT_PRICE}🪙</button></div>`;
-  root.innerHTML = `<div class="lesson">${lHead()}<div class="qwrap">${qTag(q)}<div class="qtext">${q.text}</div>${L.hint ? `<div class="hintbox">💡 ${esc(q.hint)}</div>` : ''}${board}</div>${foot}</div>`;
+      ? `<div class="fb ok"><div class="msg">${mascot('sm', true)}<div><b>${pick(tt(['Верно!', 'Отлично!', 'Супер!', 'Блестяще!'], ['Правільна!', 'Выдатна!', 'Суперпа!', 'Бліскуча!'], ['Správně!', 'Výborně!', 'Super!', 'Skvělé!'], ['Correct!', 'Great job!', 'Super!', 'Brilliant!']))}</b>${esc(v.explain || '')}</div></div><button class="btn grn" data-a="next">${tt('Дальше', 'Далей', `Dál`, `Next`)}</button></div>`
+      : `<div class="fb no"><div class="msg">${mascot('sm')}<div><b>${tt('Ничего, бывает!', 'Нічога, бывае!', `Nic se neděje!`, `It happens!`)}</b>${tt('Правильный ход показан на доске.', 'Правільны ход паказаны на дошцы.', `Správný tah je ukázán na šachovnici.`, `The correct move is shown on the board.`)}<br>${esc(v.explain || '')}</div></div><button class="btn red" data-a="next">${tt('Понятно', 'Зразумела', `Jasné`, `Got it`)}</button></div>`;
+  } else foot = `<div class="lfoot"><button class="btn ghost" data-a="hint" style="flex:1">💡 ${HINT_PRICE}🪙</button>${globeBtn(q)}</div>`;
+  root.innerHTML = `<div class="lesson">${lHead()}<div class="qwrap">${qTag(q)}${langChip(q)}<div class="qtext">${v.text}</div>${L.hint ? `<div class="hintbox">💡 ${esc(v.hint)}</div>` : ''}${board}</div>${foot}</div>`;
 }
 function answerBoard(ok) {
   const q = L.queue[0]; tickTime(); L.answered = true; L.ok = ok;
@@ -504,13 +544,14 @@ function rLesson() {
   if (L.intro) return rIntro();
   if (q.type === 'board') return rBoard(q);
   if (q.study && !L.studied && !L.answered) return rStudy(q);
+  const v = view(q);
   let ans = '';
   if (q.type === 'choice') {
     const cls = q.cols === 1 ? 'c1' : q.wide || q.choices.length === 3 && q.choices.every(c => plain(c.h).length <= 2) ? 'c3' : (q.choices.some(c => plain(c.h).length > 22) ? 'c1' : '');
     ans = `<div class="opts ${cls}">` + q.choices.map((c, i) => {
       let st = ''; if (L.answered) { if (c.v === q.answer) st = ' ok'; else if (L.sel === i) st = ' no'; } else if (L.sel === i) st = ' sel';
       const k = q.big ? ' emo' : (plain(c.h).length > 12 && !/</.test(c.h) ? ' txt' : '');
-      return `<button class="opt${k}${st}" data-a="pick" data-i="${i}">${c.h}</button>`;
+      return `<button class="opt${k}${st}" data-a="pick" data-i="${i}">${v.choices[i].h}</button>`;
     }).join('') + '</div>';
   } else {
     ans = `<div class="numrow"><div class="numdisp${L.answered ? (L.ok ? ' ok' : ' no') : ''}">${L.input || '&nbsp;'}</div>` + (L.answered ? '' : '<button class="bk" data-a="key" data-k="b">⌫</button>') + '</div>' + (L.answered ? '' :
@@ -518,15 +559,15 @@ function rLesson() {
   }
   let foot;
   if (L.answered) {
-    const shown = q.type === 'choice' ? q.choices.find(c => c.v === q.answer).h : q.answer;
+    const shown = q.type === 'choice' ? v.choices[q.choices.findIndex(c => c.v === q.answer)].h : q.answer;
     foot = L.ok
-      ? `<div class="fb ok"><div class="msg">${mascot('sm', true)}<div><b>${pick(tt(['Верно!', 'Отлично!', 'Супер!', 'Так держать!', 'Блестяще!', 'Молодец!'], ['Правільна!', 'Выдатна!', 'Суперпа!', 'Так трымаць!', 'Бліскуча!', 'Малайчына!'], ['Správně!', 'Výborně!', 'Super!', 'Jen tak dál!', 'Skvělé!', 'Šikovně!'], ['Correct!', 'Great job!', 'Super!', 'Keep it up!', 'Brilliant!', 'Well done!']))}${L.combo >= 3 ? `<span class="combo">🔥 ${L.combo} ${tt('подряд', 'запар', `v řadě`, `in a row`)}</span>` : ''}</b>${esc(q.explain || '')}</div></div><button class="btn grn" data-a="next">${tt('Дальше', 'Далей', `Dál`, `Next`)}</button></div>`
-      : `<div class="fb no"><div class="msg">${mascot('sm')}<div><b>${pick(tt(['Почти!', 'Не страшно!', 'Ничего, бывает!', 'В следующий раз получится!'], ['Амаль!', 'Не страшна!', 'Нічога, бывае!', 'У наступны раз атрымаецца!'], ['Skoro!', 'To nevadí!', 'Nic se neděje!', 'Příště to vyjde!'], ['Almost!', "Don't worry!", 'It happens!', 'You will get it next time!']))}</b>${tt('Правильный ответ', 'Правільны адказ', `Správná odpověď`, `Correct answer`)}: <b style="display:inline">${shown}</b><br>${esc(q.explain || '')}</div></div><button class="btn red" data-a="next">${tt('Понятно', 'Зразумела', `Jasné`, `Got it`)}</button></div>`;
+      ? `<div class="fb ok"><div class="msg">${mascot('sm', true)}<div><b>${pick(tt(['Верно!', 'Отлично!', 'Супер!', 'Так держать!', 'Блестяще!', 'Молодец!'], ['Правільна!', 'Выдатна!', 'Суперпа!', 'Так трымаць!', 'Бліскуча!', 'Малайчына!'], ['Správně!', 'Výborně!', 'Super!', 'Jen tak dál!', 'Skvělé!', 'Šikovně!'], ['Correct!', 'Great job!', 'Super!', 'Keep it up!', 'Brilliant!', 'Well done!']))}${L.combo >= 3 ? `<span class="combo">🔥 ${L.combo} ${tt('подряд', 'запар', `v řadě`, `in a row`)}</span>` : ''}</b>${esc(v.explain || '')}</div></div><button class="btn grn" data-a="next">${tt('Дальше', 'Далей', `Dál`, `Next`)}</button></div>`
+      : `<div class="fb no"><div class="msg">${mascot('sm')}<div><b>${pick(tt(['Почти!', 'Не страшно!', 'Ничего, бывает!', 'В следующий раз получится!'], ['Амаль!', 'Не страшна!', 'Нічога, бывае!', 'У наступны раз атрымаецца!'], ['Skoro!', 'To nevadí!', 'Nic se neděje!', 'Příště to vyjde!'], ['Almost!', "Don't worry!", 'It happens!', 'You will get it next time!']))}</b>${tt('Правильный ответ', 'Правільны адказ', `Správná odpověď`, `Correct answer`)}: <b style="display:inline">${shown}</b><br>${esc(v.explain || '')}</div></div><button class="btn red" data-a="next">${tt('Понятно', 'Зразумела', `Jasné`, `Got it`)}</button></div>`;
   } else {
     const can = q.type === 'choice' ? L.sel !== null : L.input !== '';
-    foot = `<div class="lfoot"><button class="btn ghost" data-a="hint">💡 ${HINT_PRICE}🪙</button><button class="btn grn" data-a="check" ${can ? '' : 'disabled'}>${tt('Проверить', 'Праверыць', `Zkontrolovat`, `Check`)}</button></div>`;
+    foot = `<div class="lfoot"><button class="btn ghost" data-a="hint">💡 ${HINT_PRICE}🪙</button>${globeBtn(q)}<button class="btn grn" data-a="check" ${can ? '' : 'disabled'}>${tt('Проверить', 'Праверыць', `Zkontrolovat`, `Check`)}</button></div>`;
   }
-  root.innerHTML = `<div class="lesson">${lHead()}<div class="qwrap">${qHTML(q)}${L.hint ? `<div class="hintbox">💡 ${esc(q.hint)}</div>` : ''}${ans}</div>${foot}</div>`;
+  root.innerHTML = `<div class="lesson">${lHead()}<div class="qwrap">${qHTML(q, v)}${L.hint ? `<div class="hintbox">💡 ${esc(v.hint)}</div>` : ''}${ans}</div>${foot}</div>`;
 }
 /* Учёт результата вопроса: для адаптивности и отчёта — только первая попытка (firstTry); для звёзд и XP — засчитан ли (credited) */
 function gradeQ(q, firstTry, credited) {
@@ -534,6 +575,7 @@ function gradeQ(q, firstTry, credited) {
   L.counted++; if (credited) L.firstOK++; else L.mistakes++;
   const ch = Skills.recordResult(S.skills[L.skill], firstTry);
   Skills.addHist(S.hist, today(), { skill: L.skill, ok: firstTry ? 1 : 0, total: 1 });
+  if (q.seed != null && q.lang && q.lang !== S.lang) Skills.addHist(S.hist, today(), { l2n: 1, l2ok: firstTry ? 1 : 0 });
   if (ch === 'up') toast(tt(`🚀 Навык «${P(SK[L.skill].name)}»: уровень ${S.skills[L.skill].lvl}!`, `🚀 Навык «${P(SK[L.skill].name)}»: узровень ${S.skills[L.skill].lvl}!`, `🚀 Dovednost „${P(SK[L.skill].name)}“: úroveň ${S.skills[L.skill].lvl}!`, `🚀 Skill "${P(SK[L.skill].name)}": level ${S.skills[L.skill].lvl}!`));
 }
 function check() {
@@ -547,7 +589,7 @@ function check() {
   if (ok) { L.combo++; L.bestCombo = Math.max(L.bestCombo, L.combo); L.resolved++; S.stat.correct++; sfx.ok(); }
   else {
     L.combo = 0; sfx.no();   // ошибка ничего не отнимает: ни сердечек, ни звёзд за прошлое
-    if (!q.retry) { const g = GENS.find(x => x.id === q.gid), nq = (freshQ(g, q.d, new Set([sigOf(q)])) || { q: makeQ(g, q.d) }).q; nq.retry = true; L.queue.push(nq); L.added++; }
+    if (!q.retry) { const g = GENS.find(x => x.id === q.gid), nq = (freshQ(g, q.d, new Set([sigOf(q)]), q.lang) || { q: makeQ(g, q.d, q.lang) }).q; nq.retry = true; L.queue.push(nq); L.added++; }
     else L.resolved++;   // повторный промах — засчитываем как пройденный, чтобы не зациклиться
   }
   save(); rLesson();
@@ -555,7 +597,7 @@ function check() {
 }
 function next() {
   clearTimeout(L.timer); tickTime();
-  L.queue.shift(); L.answered = false; L.sel = null; L.input = ''; L.hint = false; L.studied = false;
+  L.queue.shift(); L.answered = false; L.sel = null; L.input = ''; L.hint = false; L.studied = false; L.alt = false;
   if (!L.queue.length) return finish();
   if (limitHit()) return endByLimit();
   rLesson();
@@ -659,6 +701,7 @@ function mergeStates(a, b) {
   m.skills = Skills.mergeSkills(a.skills, b.skills); m.hist = Skills.mergeHist(a.hist, b.hist);
   m.route = (a.route && b.route && a.route.date === b.route.date) ? (a.route.done.length >= b.route.done.length ? a.route : b.route) : nw.route;
   m.parent = Skills.mergeParent(Skills.fixParent(nw.parent), Skills.fixParent(ol.parent));
+  m.bil = Skills.mergeBil(Skills.fixBil(nw.bil), Skills.fixBil(ol.bil));
   m.recent = union(ol.recent, nw.recent).slice(-150);
   for (const k of [...OLD_KEYS, 'done']) delete m[k];
   m.lang = a.lang; m.sound = a.sound; m.ts = Math.max(a.ts || 0, b.ts || 0);
@@ -712,7 +755,7 @@ function press(k) {
   sfx.tap(); rLesson();
 }
 const A = {
-  lang(el) { const v = ($('#nm') || {}).value; if (v !== undefined && !S.name) S.name = v; S.lang = el.dataset.l; setLang(S.lang); document.documentElement.lang = S.lang; document.title = tt('Умники', 'Разумнікі', `Chytráci`, `Smart Kids`); phrase = newPhrase(); save(); if (R === 'onboard' || !S.name) { rOnboard(); const i = $('#nm'); if (i) i.value = S.name; } else render(); },
+  lang(el) { const v = ($('#nm') || {}).value; if (v !== undefined && !S.name) S.name = v; S.lang = el.dataset.l; if (S.bil.second === S.lang) S.bil.second = ''; setLang(S.lang); document.documentElement.lang = S.lang; document.title = tt('Умники', 'Разумнікі', `Chytráci`, `Smart Kids`); phrase = newPhrase(); save(); if (R === 'onboard' || !S.name) { rOnboard(); const i = $('#nm'); if (i) i.value = S.name; } else render(); },
   profile() { sfx.tap(); R = 'profile'; render(); },
   login() { login(); },
   logout() { logout(); },
@@ -752,6 +795,16 @@ const A = {
   key(el) { press(el.dataset.k); },
   check() { const b = $('[data-a=check]'); if (b && !b.disabled) check(); },
   next() { next(); },
+  alt() {
+    if (!L) return; const q = L.queue[0]; if (!q || q.seed == null || !bilOn()) return;
+    L.alt = !L.alt; sfx.tap();
+    if (!q.tapped) { q.tapped = true; Skills.addHist(S.hist, today(), { tap: 1, hard: L.skill }); save(); }   // «не понял» не стоит ни звёзд, ни ошибки
+    rLesson();
+  },
+  bilsecond(el) { S.bil.second = el.dataset.l || ''; S.bil.carry = 0; save(); sfx.tap(); render(); },
+  bilmode(el) { S.bil.mode = el.dataset.m; S.bil.carry = 0; save(); sfx.tap(); render(); },
+  bilshare(el) { S.bil.share = +el.dataset.m; S.bil.carry = 0; S.bil.adaptedAt = ''; save(); sfx.tap(); render(); },
+  biladapt() { S.bil.adapt = !S.bil.adapt; save(); sfx.tap(); render(); },
   ready() { if (L && !L.studied) { clearTimeout(L.timer); L.studied = true; rLesson(); } },
   hint() {
     if (L.hint) return;

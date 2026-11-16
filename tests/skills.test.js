@@ -86,4 +86,29 @@ t('Лимит: на следующий день счёт начинается з
 t('Слияние родительских настроек: побеждает копия, где задан PIN', () => { const a = K.newParent(), b = K.newParent(); K.setPin(b, '1111', 's'); b.limit = 30; assert.strictEqual(K.mergeParent(a, b).limit, 30); assert.ok(K.hasPin(K.mergeParent(a, b))); const c = K.newParent(); K.setPin(c, '2222', 't'); assert.ok(K.checkPin(K.mergeParent(c, b), '2222')); });
 t('fixParent чинит повреждённые данные', () => { const p = K.fixParent({ limit: 9999, extra: null, pin: 5 }); assert.strictEqual(p.limit, 180); assert.deepStrictEqual(p.extra, { date: '', min: 0 }); assert.deepStrictEqual(K.fixParent(null), K.newParent()); });
 
+/* ---- двуязычный режим ---- */
+const bilOf = o => K.fixBil(Object.assign({ second: 'cs' }, o));
+t('Доля второго языка: в среднем точная для 20/30/50/80% (±1 п.п. за 1000 занятий по 8 заданий)', () => {
+  for (const share of [20, 30, 50, 80]) { const bil = bilOf({ share }); let on = 0, tot = 0; const r = rng(share);
+    for (let i = 0; i < 1000; i++) { const p = K.planLangs(8, bil, r); bil.carry = p.carry; on += p.flags.filter(Boolean).length; tot += 8; }
+    assert.ok(Math.abs(100 * on / tot - share) <= 1, `${share}%: получилось ${(100 * on / tot).toFixed(2)}%`); } });
+t('Доля в одном занятии отличается от заданной не больше чем на одно задание', () => {
+  for (const share of [20, 30, 50, 80]) { const bil = bilOf({ share }), r = rng(7 + share); for (let i = 0; i < 500; i++) { const p = K.planLangs(8, bil, r); bil.carry = p.carry; const k = p.flags.filter(Boolean).length; assert.ok(Math.abs(k - 8 * share / 100) <= 1, `${share}%: ${k} из 8`); } } });
+t('Маршрут из 4 заданий тоже даёт точную долю в среднем', () => { const bil = bilOf({ share: 30 }), r = rng(5); let on = 0; for (let i = 0; i < 2000; i++) { const p = K.planLangs(4, bil, r); bil.carry = p.carry; on += p.flags.filter(Boolean).length; } assert.ok(Math.abs(100 * on / 8000 - 30) <= 1); });
+t('Погружение: все задания на втором языке', () => assert.ok(K.planLangs(8, bilOf({ mode: 'immersion' })).flags.every(Boolean)));
+t('Позиции заданий на втором языке перемешаны (не всегда первые)', () => { const bil = bilOf({ share: 50 }); const seen = new Set(); const r = rng(11); for (let i = 0; i < 60; i++) { const p = K.planLangs(8, bil, r); bil.carry = 0; seen.add(p.flags.join('')); } assert.ok(seen.size > 5); });
+t('Адаптация: много «не понял» → доля ниже на одну ступень', () => assert.deepStrictEqual(K.adaptShare(bilOf({ share: 50 }), { n: 20, tap: 10 }, '2026-11-16'), { share: 30, adaptedAt: '2026-11-16', changed: 'down' }));
+t('Адаптация: мало «не понял» → доля выше на одну ступень', () => { const r = K.adaptShare(bilOf({ share: 30 }), { n: 30, tap: 1 }, '2026-11-16'); assert.strictEqual(r.share, 50); assert.strictEqual(r.changed, 'up'); });
+t('Адаптация: не чаще одного раза в неделю', () => { const b = bilOf({ share: 50, adaptedAt: '2026-11-12' }); assert.strictEqual(K.adaptShare(b, { n: 30, tap: 20 }, '2026-11-16').changed, null); assert.strictEqual(K.adaptShare(b, { n: 30, tap: 20 }, '2026-11-19').changed, 'down'); });
+t('Адаптация: мало данных, выключена, погружение, нет второго языка — ничего не меняется', () => { assert.strictEqual(K.adaptShare(bilOf({ share: 50 }), { n: 5, tap: 5 }, '2026-11-16').changed, null); assert.strictEqual(K.adaptShare(bilOf({ share: 50, adapt: false }), { n: 50, tap: 40 }, '2026-11-16').changed, null);
+  assert.strictEqual(K.adaptShare(bilOf({ mode: 'immersion' }), { n: 50, tap: 40 }, '2026-11-16').changed, null); assert.strictEqual(K.adaptShare(K.newBil(), { n: 50, tap: 40 }, '2026-11-16').changed, null); });
+t('Адаптация: границы 10% и 80% не нарушаются', () => { assert.strictEqual(K.adaptShare(bilOf({ share: 10 }), { n: 30, tap: 30 }, '2026-11-16').changed, null); assert.strictEqual(K.adaptShare(bilOf({ share: 80 }), { n: 50, tap: 0 }, '2026-11-16').changed, null); });
+t('fixBil чинит повреждённые данные; bilActive: второй язык должен отличаться от основного', () => { const b = K.fixBil({ share: 77, mode: 'x', carry: 'abc', adapt: 0 }); assert.strictEqual(b.share, 30); assert.strictEqual(b.mode, 'mix'); assert.strictEqual(b.carry, 0);
+  assert.ok(K.bilActive({ second: 'cs' }, 'ru')); assert.ok(!K.bilActive({ second: 'ru' }, 'ru')); assert.ok(!K.bilActive({ second: '' }, 'ru')); });
+t('История: задания на втором языке, нажатия «не понял», трудные навыки — копятся, сливаются и попадают в неделю', () => {
+  const h = {}; K.addHist(h, '2026-11-16', { l2n: 1, l2ok: 1 }); K.addHist(h, '2026-11-16', { l2n: 1, l2ok: 0, tap: 1, hard: 'memory' }); K.addHist(h, '2026-11-15', { tap: 1, hard: 'memory' });
+  assert.deepStrictEqual(h['2026-11-16'].l2, { n: 2, ok: 1, tap: 1 }); const w = K.weekStats(h, '2026-11-16'); assert.deepStrictEqual(w.cur.l2, { n: 2, ok: 1, tap: 2 }); assert.strictEqual(w.cur.hard.memory, 2);
+  const o = {}; K.addHist(o, '2026-11-16', { l2n: 5, l2ok: 4, tap: 0 }); const m = K.mergeHist(h, o); assert.strictEqual(m['2026-11-16'].l2.n, 5); assert.strictEqual(m['2026-11-16'].l2.tap, 1); });
+t('Слияние настроек двуязычного режима: побеждает копия, где задан второй язык', () => { const a = K.newBil(), b = bilOf({ second: 'ru', share: 50 }); assert.strictEqual(K.mergeBil(a, b).second, 'ru'); assert.strictEqual(K.mergeBil(bilOf({ second: 'cs' }), b).second, 'cs'); });
+
 console.log(`\n${passed} проверок пройдено`);

@@ -46,9 +46,11 @@ const starsFor = (ok, total) => (total <= 0 ? 3 : ok / total >= 0.85 ? 3 : ok / 
 
 /* ---------- история занятий ---------- */
 const emptyDay = () => ({ sec: 0, ses: 0, sk: {} });
-function addHist(hist, date, { sec = 0, ses = 0, skill, ok = 0, total = 0 } = {}) {
+function addHist(hist, date, { sec = 0, ses = 0, skill, ok = 0, total = 0, l2n = 0, l2ok = 0, tap = 0, hard } = {}) {
   const d = hist[date] || (hist[date] = emptyDay());
   d.sec += Math.round(sec); d.ses += ses;
+  if (l2n || tap) { const l = d.l2 || (d.l2 = { n: 0, ok: 0, tap: 0 }); l.n += l2n; l.ok += l2ok; l.tap += tap; }
+  if (hard) { const h = d.hard || (d.hard = {}); h[hard] = (h[hard] || 0) + 1; }
   if (skill && total) { const a = d.sk[skill] || (d.sk[skill] = [0, 0]); a[0] += ok; a[1] += total; }
   return d;
 }
@@ -65,6 +67,8 @@ function mergeHist(a, b) {
   for (const k of new Set([...Object.keys(a || {}), ...Object.keys(b || {})])) {
     const x = (a || {})[k] || emptyDay(), y = (b || {})[k] || emptyDay(), m = emptyDay();
     m.sec = Math.max(x.sec, y.sec); m.ses = Math.max(x.ses, y.ses);
+    if (x.l2 || y.l2) { const p = x.l2 || { n: 0, ok: 0, tap: 0 }, q = y.l2 || { n: 0, ok: 0, tap: 0 }; m.l2 = { n: Math.max(p.n, q.n), ok: Math.max(p.ok, q.ok), tap: Math.max(p.tap, q.tap) }; }
+    if (x.hard || y.hard) { m.hard = {}; for (const k of new Set([...Object.keys(x.hard || {}), ...Object.keys(y.hard || {})])) m.hard[k] = Math.max((x.hard || {})[k] || 0, (y.hard || {})[k] || 0); }
     for (const s of new Set([...Object.keys(x.sk || {}), ...Object.keys(y.sk || {})])) {
       const p = (x.sk || {})[s] || [0, 0], q = (y.sk || {})[s] || [0, 0]; m.sk[s] = q[1] > p[1] ? q.slice() : p.slice(); }
     out[k] = m;
@@ -82,8 +86,9 @@ function weekStats(hist, endDate) {
   const range = off => Array.from({ length: 7 }, (_, i) => addDays(endDate, -(6 + off) + i));
   const cur = range(0), prev = range(7);
   const sum = days => {
-    const r = { sec: 0, ses: 0, played: 0, sk: {}, ok: 0, total: 0 };
+    const r = { sec: 0, ses: 0, played: 0, sk: {}, ok: 0, total: 0, l2: { n: 0, ok: 0, tap: 0 }, hard: {} };
     for (const d of days) { const h = hist[d]; if (!h) continue; r.sec += h.sec; r.ses += h.ses; if (h.ses > 0) r.played++;
+      if (h.l2) { r.l2.n += h.l2.n; r.l2.ok += h.l2.ok; r.l2.tap += h.l2.tap; } for (const [k, v] of Object.entries(h.hard || {})) r.hard[k] = (r.hard[k] || 0) + v;
       for (const [s, [o, t]] of Object.entries(h.sk || {})) { const a = r.sk[s] || (r.sk[s] = [0, 0]); a[0] += o; a[1] += t; r.ok += o; r.total += t; } }
     return r;
   };
@@ -106,6 +111,33 @@ function ensureRoute(S, today, avail, rnd) {
 }
 
 
+/* ---------- двуязычный режим (B1–B7) ---------- */
+const SHARES = [10, 20, 30, 50, 80];
+const newBil = () => ({ second: '', mode: 'mix', share: 30, adapt: true, carry: 0, adaptedAt: '' });
+const fixBil = b => { b = Object.assign(newBil(), b || {}); if (b.mode !== 'immersion') b.mode = 'mix'; if (!SHARES.includes(b.share)) b.share = 30; b.carry = Number.isFinite(+b.carry) ? Math.max(0, Math.min(1, +b.carry)) : 0; b.second = typeof b.second === 'string' ? b.second : ''; b.adapt = b.adapt !== false; return b; };
+const bilActive = (bil, primary) => !!bil.second && bil.second !== primary;
+/* Какие из n заданий занятия будут на втором языке. Доля копится дробными остатками (carry), поэтому в среднем точна
+   (20/30/50/80%), а в одном занятии отклонение не больше одного задания. «Погружение» — все задания на втором языке. */
+function planLangs(n, bil, rnd = Math.random) {
+  if (bil.mode === 'immersion') return { flags: Array(n).fill(true), carry: 0 };
+  const want = n * bil.share / 100 + (bil.carry || 0), k = Math.max(0, Math.min(n, Math.floor(want + 1e-9))), flags = Array(n).fill(false);
+  const idx = [...Array(n).keys()]; for (let i = idx.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [idx[i], idx[j]] = [idx[j], idx[i]]; }
+  idx.slice(0, k).forEach(i => (flags[i] = true));
+  return { flags, carry: Math.max(0, want - k) };
+}
+/* Адаптация доли (B6): часто нажимают «не понял» — доля второго языка ниже, редко — выше. Не чаще раза в 7 дней, нужны данные за неделю. */
+function adaptShare(bil, week, today) {
+  const out = { share: bil.share, adaptedAt: bil.adaptedAt, changed: null };
+  if (!bil.adapt || bil.mode !== 'mix' || !bil.second) return out;
+  if (bil.adaptedAt && (parseDay(today) - parseDay(bil.adaptedAt)) / 864e5 < 7) return out;
+  const n = week.n, rate = n ? week.tap / n : 0, i = SHARES.indexOf(bil.share);
+  if (n >= 10 && rate > 0.35 && i > 0) { out.share = SHARES[i - 1]; out.changed = 'down'; }
+  else if (n >= 20 && rate < 0.1 && i < SHARES.length - 1) { out.share = SHARES[i + 1]; out.changed = 'up'; }
+  if (out.changed) out.adaptedAt = today;
+  return out;
+}
+const mergeBil = (nw, ol) => JSON.parse(JSON.stringify(nw.second || !ol.second ? nw : ol));
+
 /* ---------- родительская зона: PIN и дневной лимит времени (F10) ---------- */
 const newParent = () => ({ pin: '', salt: '', limit: 0, extra: { date: '', min: 0 } });
 const fixParent = p => { p = Object.assign(newParent(), p || {}); p.limit = Math.max(0, Math.min(180, p.limit | 0)); p.extra = Object.assign({ date: '', min: 0 }, p.extra || {}); return p; };
@@ -127,7 +159,7 @@ function limitLeft(parent, hist, today, live = 0) {
 }
 const mergeParent = (nw, ol) => JSON.parse(JSON.stringify(nw.pin || !ol.pin ? nw : ol));   // побеждает копия, где PIN уже задан
 
-const api = { newParent, fixParent, pinHash, hasPin, checkPin, setPin, limitLeft, mergeParent, SKILLS, SKILL_OF, MAX_LVL, WIN, UP_AT, DOWN_AT, ROUTE_LEN, HIST_DAYS, dayStr, parseDay, addDays, newSkills, fixSkills, recordResult, starsFor,
+const api = { SHARES, newBil, fixBil, bilActive, planLangs, adaptShare, mergeBil, newParent, fixParent, pinHash, hasPin, checkPin, setPin, limitLeft, mergeParent, SKILLS, SKILL_OF, MAX_LVL, WIN, UP_AT, DOWN_AT, ROUTE_LEN, HIST_DAYS, dayStr, parseDay, addDays, newSkills, fixSkills, recordResult, starsFor,
   addHist, pruneHist, daysPlayedIn, daysPlayedTotal, lastPlayed, mergeHist, mergeSkills, weekStats, pickRoute, ensureRoute };
 if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Skills = api;
 })(typeof window !== 'undefined' ? window : globalThis);

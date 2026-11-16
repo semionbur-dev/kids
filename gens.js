@@ -6,7 +6,15 @@
 const LANGS = ['ru', 'be', 'cs', 'en'];
 let LANG = 'ru';
 const t = (ru, be, cs, en) => ({ ru, be, cs, en })[LANG];
-const rnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+/* Источник случайности подменяемый: с одним «зерном» генератор выдаёт одно и то же задание на любом языке
+   (нужно для кнопки «не понял» в двуязычном режиме). Без зерна — обычный Math.random. */
+let RNG = Math.random;
+const rand = () => RNG();
+const mulberry32 = a => () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+const withSeed = (seed, fn) => { const prev = RNG; RNG = mulberry32(seed); try { return fn(); } finally { RNG = prev; } };
+const withLang = (lang, fn) => { const prev = LANG; LANG = LANGS.includes(lang) ? lang : 'ru'; try { return fn(); } finally { LANG = prev; } };
+const generate = (g, d, seed, lang) => withSeed(seed, () => withLang(lang, () => g.make(d)));
+const rnd = (a, b) => a + Math.floor(rand() * (b - a + 1));
 const pick = a => a[rnd(0, a.length - 1)];
 const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = rnd(0, i); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -63,7 +71,7 @@ gen('arith', 'mul', 1, d => {
   else if (d === 3) { a = rnd(11, 25); b = rnd(2, 5); }
   else if (d === 4) { a = rnd(12, 49); b = rnd(3, 9); }
   else { a = rnd(25, 99); b = rnd(3, 9); }
-  if (Math.random() < 0.5) [a, b] = [b, a];
+  if (rand() < 0.5) [a, b] = [b, a];
   const ans = a * b;
   return byD(d, { text: `${a} × ${b} = ?`, answer: ans,
     hint: d <= 2 ? t('Вспомни таблицу умножения. Умножение — это сложение одинаковых чисел.', 'Успомні табліцу множання. Множанне — гэта складанне аднолькавых лікаў.',
@@ -168,7 +176,7 @@ gen('frac', 'fshade', 1, d => {
   const n = d === 1 ? pick([2, 3, 4]) : d === 2 ? pick([3, 4, 5, 6, 8]) : pick([4, 5, 6, 8, 10, 12]);
   const k = rnd(1, n - 1);
   return mkChoice({ text: t('Какая часть фигуры закрашена?', 'Якая частка фігуры зафарбавана?', 'Jaká část obrazce je vybarvená?', 'What part of the shape is shaded?'),
-    visual: (Math.random() < 0.5 || n > 8) ? barSVG(n, k) : pieSVG(n, k), answer: `${k}/${n}`,
+    visual: (rand() < 0.5 || n > 8) ? barSVG(n, k) : pieSVG(n, k), answer: `${k}/${n}`,
     hint: t('Сосчитай, на сколько частей поделена фигура — это знаменатель. Сколько частей закрашено — это числитель.',
       'Падлічы, на колькі частак падзелена фігура — гэта назоўнік. Колькі частак зафарбавана — гэта лічнік.',
       'Spočítej, na kolik dílů je obrazec rozdělený – to je jmenovatel. Kolik dílů je vybarvených – to je čitatel.',
@@ -204,7 +212,7 @@ gen('frac', 'fcmp', 1, d => {
   else { const n = rnd(1, 4), m = rnd(n + 1, 6), k = rnd(2, 4); a = n; b = m; c = n * k + pick([-1, 0, 0, 1]); e = m * k;
     if (c < 1 || c >= e) c = n * k;
     hint = t('Приведи дроби к одинаковому знаменателю.', 'Прывядзі дробы да адзінага назоўніка.', 'Převeď zlomky na společného jmenovatele.', 'Convert the fractions to a common denominator.'); }
-  if (Math.random() < 0.5) { [a, c] = [c, a]; [b, e] = [e, b]; }
+  if (rand() < 0.5) { [a, c] = [c, a]; [b, e] = [e, b]; }
   const s = Math.sign(a * e - c * b), ans = s < 0 ? '<' : s > 0 ? '>' : '=';
   return mkChoice({ text: `${t('Сравни', 'Параўнай', 'Porovnej', 'Compare')}: ${frac(a, b)} ${BL} ${frac(c, e)}`, answer: ans, hint, explain: `${a}/${b} ${ans} ${c}/${e}`, wide: true },
     ['<', '=', '>'].map(x => ({ h: x, v: x })));
@@ -246,7 +254,7 @@ gen('frac', 'ops', 2, d => {
 
 gen('frac', 'equiv', 2, d => {
   const m = rnd(2, 6), n = rnd(1, m - 1), k = rnd(2, d <= 3 ? 4 : 6);
-  if (d <= 3 || Math.random() < 0.5)
+  if (d <= 3 || rand() < 0.5)
     return byD(d, { text: `${frac(n, m)} = ${frac(BL, m * k)}`, answer: n * k,
       hint: t(`Знаменатель умножили на ${k}. Умножь на ${k} и числитель.`, `Назоўнік памножылі на ${k}. Памнож на ${k} і лічнік.`,
         `Jmenovatele jsme vynásobili ${k}. Vynásob ${k} i čitatele.`, `The denominator was multiplied by ${k}. Multiply the numerator by ${k} too.`), explain: `${n} × ${k} = ${n * k}` }, numOpts(n * k));
@@ -282,7 +290,7 @@ SEQS.push(
 );
 gen('logic', 'seq', 1, d => {
   const s = pick(SEQS.filter(x => x.d <= d && x.d >= Math.max(1, d - 1))), { t: tt, h } = s.f();
-  const hide = (d >= 2 && Math.random() < 0.3) ? 4 : 5;
+  const hide = (d >= 2 && rand() < 0.3) ? 4 : 5;
   const vis = tt.map((x, i) => `<span class="chip${i === hide ? ' q' : ''}">${i === hide ? '?' : x}</span>`).join('');
   return byD(d, { text: t('Какое число пропущено?', 'Які лік прапушчаны?', 'Které číslo chybí?', 'Which number is missing?'), visual: vis, answer: tt[hide], hint: h,
     explain: t(`Пропущено число ${tt[hide]}.`, `Прапушчаны лік ${tt[hide]}.`, `Chybí číslo ${tt[hide]}.`, `The missing number is ${tt[hide]}.`) }, numOpts(tt[hide]));
@@ -309,10 +317,10 @@ const CATS = [
   [['одежда', 'адзенне', 'oblečení', 'clothes'], ['👕', '👖', '🧦', '🧤', '🧢', '👗']],
 ];
 gen('logic', 'odd', 1, d => {
-  if (d >= 2 && Math.random() < 0.5) {
+  if (d >= 2 && rand() < 0.5) {
     const k = d === 2 ? 2 : d === 3 ? pick([3, 5]) : pick([4, 6, 7, 8]);
     const mult = []; while (mult.length < 3) { const m = k * rnd(Math.ceil(10 / k), Math.floor(99 / k)); if (!mult.includes(m)) mult.push(m); }
-    let odd, explain; const flip = d === 2 && Math.random() < 0.5;
+    let odd, explain; const flip = d === 2 && rand() < 0.5;
     if (d === 2) {
       const grp = flip ? mult.map(m => m + 1) : mult;
       do { odd = flip ? rnd(5, 49) * 2 : rnd(5, 49) * 2 + 1; } while (grp.includes(odd));
@@ -555,7 +563,7 @@ gen('logic', 'order', 1, d => {
   const n = d <= 2 ? 3 : 4, cmp = pick(CMP[LANG]), names = shuffle(NAMES[LANG]).slice(0, n), st = [];
   const stmt = (A, B, up) => t(up ? `${A} ${cmp[0]}, чем ${B}` : `${B} ${cmp[1]}, чем ${A}`, up ? `${A} ${cmp[0]}, чым ${B}` : `${B} ${cmp[1]}, чым ${A}`,
     up ? `${A} je ${cmp[0]} než ${B}` : `${B} je ${cmp[1]} než ${A}`, up ? `${A} is ${cmp[0]} than ${B}` : `${B} is ${cmp[1]} than ${A}`);
-  for (let i = 0; i < n - 1; i++) st.push(stmt(names[i], names[i + 1], Math.random() < 0.5));
+  for (let i = 0; i < n - 1; i++) st.push(stmt(names[i], names[i + 1], rand() < 0.5));
   const kind = d <= 2 ? pick(['top', 'bot']) : pick(['top', 'bot', 'cnt']);
   const lead = shuffle(st).join('. ') + '. ';
   const topW = kind === 'top';
@@ -598,8 +606,8 @@ function gridSVG(a, b) {
 gen('geom', 'perim', 1, d => {
   const R = d === 1 ? [2, 8] : [5, 25];
   const sq = t('У квадрата 4 одинаковые стороны.', 'У квадрата 4 аднолькавыя староны.', 'Čtverec má 4 stejné strany.', 'A square has 4 equal sides.');
-  if (d >= 4 || (d === 3 && Math.random() < 0.4)) {
-    if (d === 5 && Math.random() < 0.5) { const a = rnd(3, 15);
+  if (d >= 4 || (d === 3 && rand() < 0.4)) {
+    if (d === 5 && rand() < 0.5) { const a = rnd(3, 15);
       return mkNum({ text: t(`Периметр квадрата ${4 * a} см. Чему равна его сторона (в см)?`, `Перыметр квадрата ${4 * a} см. Чаму роўная яго старана (у см)?`,
         `Obvod čtverce je ${4 * a} cm. Jak dlouhá je jeho strana (v cm)?`, `The perimeter of a square is ${4 * a} cm. How long is its side (in cm)?`), answer: a, hint: sq, explain: `${4 * a} ÷ 4 = ${a}` }); }
     if (d >= 4) { const a = rnd(4, 20), b = rnd(3, 20), P = 2 * (a + b);
@@ -713,10 +721,10 @@ gen('geom', 'balance', 2, d => {
 function sudokuGrid() {
   const perm = shuffle([1, 2, 3, 4]);
   let g = [[1, 2, 3, 4], [3, 4, 1, 2], [2, 1, 4, 3], [4, 3, 2, 1]].map(r => r.map(x => perm[x - 1]));
-  if (Math.random() < 0.5) [g[0], g[1]] = [g[1], g[0]];
-  if (Math.random() < 0.5) [g[2], g[3]] = [g[3], g[2]];
-  if (Math.random() < 0.5) g = [g[2], g[3], g[0], g[1]];
-  if (Math.random() < 0.5) g = g[0].map((_, c) => g.map(r => r[c]));
+  if (rand() < 0.5) [g[0], g[1]] = [g[1], g[0]];
+  if (rand() < 0.5) [g[2], g[3]] = [g[3], g[2]];
+  if (rand() < 0.5) g = [g[2], g[3], g[0], g[1]];
+  if (rand() < 0.5) g = g[0].map((_, c) => g.map(r => r[c]));
   return g;
 }
 gen('geom', 'sudoku', 1, d => {
@@ -751,7 +759,7 @@ gen('geom', 'magic', 3, d => {
   let m = [[2, 7, 6], [9, 5, 1], [4, 3, 8]];
   const rot = a => a[0].map((_, c) => a.map(r => r[c]).reverse());
   for (let i = rnd(0, 3); i > 0; i--) m = rot(m);
-  if (Math.random() < 0.5) m = m.map(r => r.slice().reverse());
+  if (rand() < 0.5) m = m.map(r => r.slice().reverse());
   const k = d <= 3 ? 1 : d === 4 ? pick([2, 3]) : pick([2, 3, 4]), c = d === 5 ? rnd(1, 6) : 0;
   m = m.map(r => r.map(x => x * k + c));
   const tr = rnd(0, 2), tc = rnd(0, 2), cells = m.map((r, i) => r.map((x, j) => `<div class="${i === tr && j === tc ? 't' : ''}">${i === tr && j === tc ? '?' : x}</div>`).join('')).join('');
@@ -824,5 +832,5 @@ gen('arith', 'time', 1, d => {
     explain: t(`От ${fmtT(t1)} до ${fmtT(t2)} — ${dm} мин.`, `Ад ${fmtT(t1)} да ${fmtT(t2)} — ${dm} хв.`, `Od ${fmtT(t1)} do ${fmtT(t2)} je ${dm} min.`, `From ${fmtT(t1)} to ${fmtT(t2)} is ${dm} min.`) }, numOpts(dm));
 });
 
-window.Gens = { GENS, LANGS, gen, mkChoice, mkNum, numOpts, txtOpts, byD, BL, rnd, pick, shuffle, esc, t, setLang: l => { LANG = LANGS.includes(l) ? l : 'ru'; }, getLang: () => LANG };
+window.Gens = { GENS, LANGS, rand, withSeed, withLang, generate, gen, mkChoice, mkNum, numOpts, txtOpts, byD, BL, rnd, pick, shuffle, esc, t, setLang: l => { LANG = LANGS.includes(l) ? l : 'ru'; }, getLang: () => LANG };
 })();
