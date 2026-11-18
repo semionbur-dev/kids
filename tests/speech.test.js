@@ -15,6 +15,13 @@ t('эмодзи называются, единицы читаются слова
   assert.strictEqual(S.normalize('Kolik je to 🐶?', 'cs'), 'Kolik je to pes?');
   assert.strictEqual(S.normalize('Периметр 12 см. Чему равна сторона (в см)?', 'ru'), 'Периметр 12 сантиметров. Чему равна сторона в сантиметрах?');
   assert.strictEqual(S.normalize('<b>Turn</b> it ↻ now', 'en'), 'Turn it now'); });
+t('значок-подсказка после слова не читается второй раз (шахматы)', () => {
+  assert.strictEqual(S.normalize('Передвинь ладью на звёздочку ⭐', 'ru'), 'Передвинь ладью на звёздочку');
+  assert.strictEqual(S.normalize('Перасунь ладдзю на зорку ⭐', 'be'), 'Перасунь ладдзю на зорку');
+  assert.strictEqual(S.normalize('Přesuň věž na hvězdičku ⭐', 'cs'), 'Přesuň věž na hvězdičku');
+  assert.strictEqual(S.normalize('Move the rook to the star ⭐', 'en'), 'Move the rook to the star');
+  assert.strictEqual(S.normalize('Возьми отмеченную фигуру 🎯', 'ru'), 'Возьми отмеченную фигуру');
+  assert.strictEqual(S.normalize('Сколько ⭐ на картинке?', 'ru'), 'Сколько звезда на картинке?'); });
 t('в 4 языках после обработки нет ни разметки, ни неназванных эмодзи, ни слов undefined', () => {
   global.window = global; require('../gens.js'); require('../gens_ext.js'); require('../gens_more.js'); window.ChessEngine = require('../chess_engine.js'); window.ChessData = require('../chess_data.js'); require('../chess.js');
   const { GENS, setLang } = window.Gens, bad = new Set(); let n = 0;

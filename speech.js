@@ -40,6 +40,7 @@ function normalize(html, lang) {
   s = s.replace(/<span class="blank">[^<]*<\/span>/g, w('blank'));
   s = s.replace(/<[^>]*>/g, ' ').replace(/&(amp|lt|gt|quot|nbsp|#39);/g, m => ENT[m]);
   s = s.replace(/️/g, '');
+  s = s.replace(/(звёзд|звезд|зорк|hvězd|star)(\p{L}*)\s*⭐/giu, '$1$2').replace(/\s*🎯/g, '');   // значок-подсказка после слова не читаем второй раз: «на звёздочку ⭐», «отмеченную фигуру 🎯»
   for (const [e, n] of Object.entries(NAMES)) if (s.includes(e)) s = s.split(e).join(' ' + n[i] + ' ');
   s = s.replace(/[←-⇿■-◿☀-➿\u{1F000}-\u{1FAFF}]/gu, ' ');       // остальные стрелки и значки
   s = s.replace(/\((?:в|у|v|in)\s+(?:cm|см)\)/g, ' ' + ['в сантиметрах', 'у сантыметрах', 'v centimetrech', 'in centimetres'][i] + ' ');
