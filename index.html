@@ -16,6 +16,16 @@
 <link rel="stylesheet" href="theme.css">
 </head>
 <body>
+<div id="splash" class="splash" aria-hidden="true"><div id="splash-av" class="avatar splash-av" data-av="🐱" data-hat="" data-live="1" data-pose="jump"><span class="hat"></span><span class="pet">🐱</span></div><div class="splash-title">Умники</div><div class="splash-dots"><i></i><i></i><i></i></div></div>
+<script>
+/* экран загрузки: показываем питомца ребёнка сразу, ещё до загрузки основного кода */
+(function () { try {
+  var s = document.getElementById('splash'), w = navigator.webdriver && !localStorage.getItem('umniki.splash');
+  if (w) { s.remove(); return; }
+  var f = JSON.parse(localStorage.getItem('umniki.v2') || 'null'), k = f && f.kids && (f.kids.filter(function (x) { return x.id === f.active; })[0] || f.kids[0]);
+  if (k && k.pet) { var a = document.getElementById('splash-av'); a.dataset.av = k.pet; a.dataset.hat = k.hat || ''; a.querySelector('.pet').textContent = k.pet; a.querySelector('.hat').textContent = k.hat || ''; }
+} catch (e) {} })();
+</script>
 <div id="app"></div>
 <div id="toasts" role="status" aria-live="polite"></div>
 <button id="totop" aria-label="Наверх" hidden>↑</button>

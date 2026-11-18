@@ -129,22 +129,38 @@ function build(pet, hat) {
   return p;
 }
 function setPose(p, pose, now) { p.pose = pose; p.poseAt = now; }
+const DUR = { happy: 2.4, sad: 2.9, wave: 2.2, cheer: 1.8, dance: 3.2, think: 2.4, look: 2.2, nod: 1.3, hop: .9, wiggle: 1.4, spin: 1.2 };   // jump и sleep идут, пока их не сменят
+const IDLE_ACTS = ['look', 'hop', 'wave', 'nod', 'wiggle', 'spin'], REACT_ACTS = ['happy', 'cheer', 'dance', 'wave', 'spin', 'think', 'wiggle', 'nod', 'hop', 'look'];
 function animate(p, t) {
-  const g = p.g, body = p.body, dt = t - p.poseAt, idle = Math.sin((t + p.t0) * 2.2);
-  let y = idle * .04, rz = Math.sin((t + p.t0) * 1.1) * .035, rx = 0, ry = 0, sy = 1 + idle * .012, mouthFlip = false, squint = 0, armUp = 0;
-  if (p.pose === 'happy') { const k = Math.max(0, 1 - dt / 2.4); y += Math.abs(Math.sin(dt * 9)) * .32 * k; ry = dt < .9 ? dt / .9 * Math.PI * 2 : 0; squint = .6 * k; armUp = 1.2 * k; if (dt > 2.4) { p.pose = 'idle'; } }
-  else if (p.pose === 'sad') { const k = Math.min(1, dt / .3) * (dt < 2.4 ? 1 : Math.max(0, 1 - (dt - 2.4) / .5)); rx = .22 * k; sy -= .07 * k; mouthFlip = k > .3; y -= .04 * k; if (dt > 2.9) p.pose = 'idle'; }
-  else if (p.pose === 'wave') { armUp = 1.0; rz += Math.sin(dt * 9) * .08; if (dt > 2.2) p.pose = 'idle'; }
+  const g = p.g, body = p.body, dt = t - p.poseAt, idle = Math.sin((t + p.t0) * 2.2), TAU = Math.PI * 2;
+  let y = idle * .04, rz = Math.sin((t + p.t0) * 1.1) * .035, rx = 0, ry = 0, sy = 1 + idle * .012, mouthFlip = false, squint = 0, armUp = 0, wig = 0;
+  if (p.auto && p.pose === 'idle' && t > p.nextAct) { const a = IDLE_ACTS.filter(x => x !== p.lastAct); p.lastAct = a[Math.floor(Math.random() * a.length)]; setPose(p, p.lastAct, t); p.nextAct = t + 5 + Math.random() * 4; }
+  switch (p.pose) {
+    case 'happy': { const k = Math.max(0, 1 - dt / 2.4); y += Math.abs(Math.sin(dt * 9)) * .32 * k; ry = dt < .9 ? dt / .9 * TAU : 0; squint = .6 * k; armUp = 1.2 * k; break; }
+    case 'sad': { const k = Math.min(1, dt / .3) * (dt < 2.4 ? 1 : Math.max(0, 1 - (dt - 2.4) / .5)); rx = .22 * k; sy -= .07 * k; mouthFlip = k > .3; y -= .04 * k; break; }
+    case 'wave': armUp = 1.0; rz += Math.sin(dt * 9) * .08; break;
+    case 'cheer': y += (dt < 1.6 ? Math.abs(Math.sin(dt * 8)) * .5 : 0); armUp = 1.4; squint = .5; break;
+    case 'dance': y += Math.abs(Math.sin(dt * 7)) * .12; rz += Math.sin(dt * 7) * .2; ry = Math.sin(dt * 3.5) * .55; squint = .3; break;
+    case 'think': rz += .18; rx = -.14 * Math.min(1, dt / .3); armUp = .5; break;
+    case 'look': ry = Math.sin(dt / 2.2 * TAU) * .7; break;
+    case 'nod': rx = Math.sin(dt * 8) * .14 * Math.max(0, 1 - dt / 1.3); break;
+    case 'hop': y += Math.sin(Math.min(1, dt / .9) * Math.PI) * .45; break;
+    case 'wiggle': rz += Math.sin(dt * 22) * .14; wig = 1; break;
+    case 'spin': { const k = Math.min(1, dt / 1.2); y += Math.sin(k * Math.PI) * .5; ry = k * TAU; squint = .3; break; }
+    case 'jump': { const ph = (dt % 1.25) / 1.25, air = Math.sin(ph * Math.PI); y += air * .75; ry = ph * TAU; sy -= .16 * Math.pow(1 - air, 6); armUp = air * 1.2; squint = .35; break; }   // прыжок с оборотом, по кругу (экран загрузки)
+    case 'sleep': rx = .28; y -= .06; sy -= .03 + Math.sin(t * 1.3) * .02; squint = 1; break;
+  }
+  if (DUR[p.pose] && dt > DUR[p.pose]) setPose(p, 'idle', t);
   g.position.y = y; g.rotation.set(rx, ry, rz); body.scale.set(1 / Math.sqrt(sy), sy, 1 / Math.sqrt(sy));
   if (t > p.blinkAt) { p.blink = .14; p.blinkAt = t + 2 + Math.random() * 3; }
   p.blink = Math.max(0, p.blink - .016); const close = Math.max(squint, p.blink > 0 ? 1 : 0);
   p.eyes.forEach(e => { e.scale.y = Math.max(.12, 1 - close * .9); });
   if (p.mouth) p.mouth.rotation.z = mouthFlip ? 0 : Math.PI;
-  p.arms.forEach(a => { const sd = a.userData.side || a.userData.wing || 1;
-    if (a.userData.wing) a.rotation.z = sd * -1.0 + Math.sin(t * (armUp ? 14 : 3)) * (armUp ? .35 : .08);
-    else { a.position.y = a.userData.base[1] + armUp * .5 + (p.pose === 'wave' && sd === 1 ? Math.sin(t * 12) * .1 : 0); a.rotation.z = sd * (-.35 - armUp * .55); } });
-  if (p.tail) p.tail.rotation.z = Math.sin((t + p.t0) * 4.5) * .3;
-  if (p.ears[0]) p.ears.forEach((e, i) => { e.rotation.x = Math.sin((t + p.t0) * 1.6 + i) * .04; });
+  p.arms.forEach(a => { const sd = a.userData.side || a.userData.wing || 1, up = p.pose === 'dance' ? Math.max(0, (sd === 1 ? 1 : -1) * Math.sin(dt * 7)) * 1.3 : p.pose === 'think' ? (sd === 1 ? armUp : 0) : armUp;
+    if (a.userData.wing) a.rotation.z = sd * -1.0 + Math.sin(t * (up ? 14 : 3)) * (up ? .35 : .08);
+    else { a.position.y = a.userData.base[1] + up * .5 + (p.pose === 'wave' && sd === 1 ? Math.sin(t * 12) * .1 : 0); a.rotation.z = sd * (-.35 - up * .55); } });
+  if (p.tail) p.tail.rotation.z = Math.sin((t + p.t0) * (wig ? 20 : 4.5)) * (wig ? .6 : .3);
+  if (p.ears[0]) p.ears.forEach((e, i) => { e.rotation.x = Math.sin((t + p.t0) * (wig ? 16 : 1.6) + i) * (wig ? .22 : .04); });
   if (p.tent) p.tent.forEach((tt, i) => { tt.rotation.z = Math.sin((t + p.t0) * 3 + i) * .18; });
   if (p.hat) p.hat.position.y = p.hatBase + y * .0;
 }
@@ -179,13 +195,15 @@ function startLive(el, pet, hat, pose) {
   const size = Math.max(40, Math.round(el.clientWidth || 120)), dpr = Math.min(2, root.devicePixelRatio || 1);
   liveR.setPixelRatio(dpr); liveR.setSize(size, size, false); const cv = liveR.domElement; cv.className = 'av3d'; cv.style.width = '100%'; cv.style.height = '100%';
   el.querySelectorAll('.av3d,.avimg').forEach(n => n.remove()); el.appendChild(cv); el.classList.add('on3d');
-  const { s, cam } = scene(), p = build(pet, hat); s.add(p.g); setPose(p, pose || 'idle', 0); const start = performance.now(), still = reduce(); live.cur = { scene: s, p, el, pet, hat, start, size };
+  const { s, cam } = scene(), p = build(pet, hat); s.add(p.g); setPose(p, pose || 'idle', 0); const start = performance.now(), still = reduce(); p.auto = true; p.nextAct = 3 + Math.random() * 3; live.cur = { scene: s, p, el, pet, hat, start, size };
   let last = 0; const me = live.cur; const loop = now => {
     if (live.cur !== me) return;
     live.raf = requestAnimationFrame(loop);
     if (!me.el.isConnected) { if (!me.lost) me.lost = now; if (now - me.lost > 800) stopLive(); return; }   // экран перерисовали: ждём, пока холст перенесут на новый
     me.lost = 0; if (document.hidden || now - last < 30) return; last = now;
-    const t = (now - start) / 1000; animate(p, still ? 0 : t); liveR.render(s, cam);
+    const t = (now - start) / 1000; animate(p, still ? 0 : t);
+    const zt = p.pose === 'jump' ? 10.8 : 8.4; cam.position.z += (zt - cam.position.z) * .12; cam.position.y += ((p.pose === 'jump' ? 1.75 : 1.5) - cam.position.y) * .12; cam.lookAt(0, p.pose === 'jump' ? 1.6 : 1.45, 0);   // в прыжке с вращением отъезжаем, чтобы хвост и уши не обрезались
+    liveR.render(s, cam);
   };
   if (still) { animate(p, 0); liveR.render(s, cam); live.raf = -1; } else live.raf = requestAnimationFrame(loop);
   el.__avatar = p; el.__t0 = start;
@@ -201,11 +219,13 @@ function hydrate(rootEl) {
   els.forEach(el => {
     const pet = el.dataset.av, hat = el.dataset.hat || '', size = Math.round(el.clientWidth || 64);
     try {
-      if (el.dataset.live && !liveDone && !el.classList.contains('on3d')) { startLive(el, pet, hat, el.dataset.pose); liveDone = true; }
+      if (el.dataset.live && !liveDone && !el.classList.contains('on3d')) { if (live.cur && live.cur.el !== el && live.cur.el.isConnected) { liveDone = true; return; }   // живой холст занят другим видимым персонажем (например, экраном загрузки)
+        startLive(el, pet, hat, el.dataset.pose); liveDone = true; }
       else if (!el.dataset.live) { if (el.querySelector('.avimg') && el.dataset.k === `${pet}|${hat}|${size}`) return; const img = el.querySelector('.avimg') || document.createElement('img'); img.className = 'avimg'; img.alt = ''; img.src = snapshot(pet, hat, size, el.dataset.pose); el.dataset.k = `${pet}|${hat}|${size}`; if (!img.parentNode) el.appendChild(img); el.classList.add('on3d'); }
     } catch (e) { failed = true; }
   });
 }
-const api = { ready, hydrate, react, stop: stopLive, supported: () => !failed, PETS: Object.keys(builders), HATS: Object.keys(hats) };
+const randomAct = () => REACT_ACTS[Math.floor(Math.random() * REACT_ACTS.length)];
+const api = { ready, hydrate, react, randomAct, ACTS: REACT_ACTS.concat(['jump', 'sleep']), stop: stopLive, supported: () => !failed, PETS: Object.keys(builders), HATS: Object.keys(hats) };
 root.Avatar = api;
 })(window);

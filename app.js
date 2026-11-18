@@ -1,7 +1,7 @@
 'use strict';
 (() => {
 const { GENS, LANGS, rnd, pick, shuffle, esc, t: tt, setLang, getLang, generate } = window.Gens;
-const BUILD = 'v25';
+const BUILD = 'v26';
 const P = pair => pair[LANGS.indexOf(getLang())];
 const LANG_NAMES = { be: 'Беларуская', ru: 'Русский', cs: 'Čeština', en: 'English' };
 const langOk = l => (LANGS.includes(l) ? l : 'ru');
@@ -537,7 +537,7 @@ function rParent() {
 function rTimeup() {
   root.innerHTML = `<div class="result"><div style="font-size:70px">🌙</div><h1>${tt('На сегодня время вышло', 'На сёння час скончыўся', `Čas pro dnešek vypršel`, `Time is up for today`)}</h1>
     <div class="sub">${tt('Отдых тоже помогает учиться. Приходи завтра!', 'Адпачынак таксама дапамагае вучыцца. Прыходзь заўтра!', `Odpočinek taky pomáhá při učení. Přijď zítra!`, `Rest helps learning too. Come back tomorrow!`)}</div>
-    <div class="mascot big" style="margin:18px auto"><span class="hat">${S.hat}</span><span class="pet">${S.pet}</span></div>
+    ${mascot('big', false, S, { live: 1, pose: 'sleep' })}
     <div class="acts"><button class="btn grn" data-a="home">${tt('На главный экран', 'На галоўны экран', `Na hlavní obrazovku`, `Home`)}</button>
       <button class="btn ghost" data-a="timeupparent">🔒 ${tt('Родителю: добавить время', 'Бацькам: дадаць час', `Rodiči: přidat čas`, `Parent: add time`)}</button></div></div>`;
 }
@@ -823,7 +823,7 @@ function check() {
   }
   save(); rLesson();
   if (S.speak === 'auto') { const lg = viewLang(q); if (speakOn(lg)) say(ok ? FB_OK[lg] : FB_NO[lg], lg); }
-  if (window.Avatar) Avatar.react(ok ? 'happy' : 'sad');
+  if (window.Avatar) Avatar.react(!ok ? 'sad' : L.combo >= 5 ? 'dance' : L.combo >= 3 || Math.random() < 0.35 ? 'cheer' : 'happy');
   if (!ok) { const el = $('.fb') || root; el.classList.add('shake'); }
 }
 function next() {
@@ -867,14 +867,14 @@ function rResult() {
     const t = r.tot;
     root.innerHTML = `<div class="result"><div style="font-size:70px">🌙</div><h1>${tt('На сегодня всё!', 'На сёння ўсё!', `Pro dnešek hotovo!`, `That's all for today!`)}</h1>
       <div class="sub">${tt('Отличная работа! Завтра — новый маршрут.', 'Выдатная праца! Заўтра — новы маршрут.', `Skvělá práce! Zítra tě čeká nová trasa.`, `Great work! A new route is waiting tomorrow.`)}</div>
-      ${mascot('big', false, S, { live: 1, pose: 'happy' })}
+      ${mascot('big', false, S, { live: 1, pose: 'dance' })}
       <div class="rew"><div><b>+${t.xp}</b>XP</div><div><b>+${t.coins}</b>${tt('монет', 'манет', `mincí`, `coins`)} 🪙</div><div><b>${t.ok}/${t.total}</b>${tt('верно', 'правільна', `správně`, `correct`)} ✓</div></div>
       ${r.events.map(e => `<div class="evt">${e.i} ${e.t}</div>`).join('')}
       <div class="acts"><button class="btn grn" data-a="home">${tt('На главный экран', 'На галоўны экран', `Na hlavní obrazovku`, `Home`)}</button></div></div>`;
     return;
   }
   const title = r.stars === 3 ? tt('Идеально!', 'Ідэальна!', `Perfektní!`, `Perfect!`) : r.route ? tt('Мини-игра пройдена!', 'Міні-гульня пройдзена!', `Minihra splněna!`, `Mini-game complete!`) : tt('Занятие завершено!', 'Занятак завершаны!', `Trénink dokončen!`, `Session complete!`);
-  root.innerHTML = `<div class="result">${mascot('big', false, S, { live: 1, pose: 'happy' })}<h1>${title}</h1>
+  root.innerHTML = `<div class="result">${mascot('big', false, S, { live: 1, pose: r.stars === 3 ? 'dance' : 'cheer' })}<h1>${title}</h1>
     <div class="sub">${tt(`Верно с первого раза: ${r.right} из ${r.total}`, `Правільна з першага разу: ${r.right} з ${r.total}`, `Správně na první pokus: ${r.right} z ${r.total}`, `Right first time: ${r.right} of ${r.total}`)}</div>
     <div class="stars">${[1, 2, 3].map(i => `<span class="${i <= r.stars ? 'on' : ''}">⭐</span>`).join('')}</div>
     <div class="rew"><div><b>+${r.xp}</b>XP</div><div><b>+${r.coins}</b>${tt('монет', 'манет', `mincí`, `coins`)} 🪙</div><div><b>${k.icon} ${S.skills[r.skill].lvl}</b>${tt('уровень навыка', 'узровень навыку', `úroveň dovednosti`, `skill level`)}</div></div>
@@ -1212,7 +1212,7 @@ const A = {
   hint() {
     if (L.hint) return;
     if (S.coins < HINT_PRICE) { toast(tt(`Нужно ${HINT_PRICE} 🪙 для подсказки`, `Трэба ${HINT_PRICE} 🪙 для падказкі`, `Na nápovědu potřebuješ ${HINT_PRICE} 🪙`, `You need ${HINT_PRICE} 🪙 for a hint`)); return; }
-    S.coins -= HINT_PRICE; L.hint = true; save(); sfx.coin(); rLesson();
+    S.coins -= HINT_PRICE; L.hint = true; save(); sfx.coin(); rLesson(); if (window.Avatar) Avatar.react('think');
   },
   quit() {
     modal({ icon: '🤔', title: tt('Выйти из занятия?', 'Выйсці з занятку?', `Ukončit trénink?`, `Leave the session?`), text: tt('Ответы уже сохранены, а это занятие можно начать заново.', 'Адказы ўжо захаваны, а гэты занятак можна пачаць зноў.', `Odpovědi jsou už uložené, trénink můžeš začít znovu.`, `Your answers are already saved – you can start this session again.`),
@@ -1263,6 +1263,7 @@ const A = {
 document.addEventListener('click', e => {
   const mi = e.target.closest('[data-mi]');
   if (mi) { const m = $('#modal'), b = m._btns && m._btns[+mi.dataset.mi]; closeModal(); if (b) b.f(); return; }
+  if (e.target.closest('.hero .mascot') && window.Avatar) { Avatar.react(Avatar.randomAct()); sfx.tap(); return; }   // ткнули в персонажа — он что-нибудь делает
   const el = e.target.closest('[data-a]'); if (!el) return;
   if (window.Speech) Speech.unlock();
   if (!ac && S.sound) { try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (er) {} }
@@ -1295,5 +1296,13 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
   navigator.serviceWorker.addEventListener('controllerchange', () => { if (had && !reloaded && R !== 'lesson') { reloaded = true; location.reload(); } });   // вышла новая версия — подхватываем сразу
   navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(r => r.update().catch(() => {})).catch(() => {});
 }
+/* экран загрузки: ждём шрифты и 3D (не дольше 2,8 с), показываем минимум ~1 с, потом плавно убираем; живой персонаж переходит на главную */
+(function splash() {
+  const sp = $('#splash'); if (!sp) return; const t0 = performance.now(), sleep = ms => new Promise(r => setTimeout(r, ms));
+  const ready = Promise.all([document.fonts && document.fonts.ready, window.Avatar ? Avatar.ready().then(() => Avatar.hydrate(sp)).catch(() => {}) : 0]).catch(() => {});
+  Promise.race([ready, sleep(2800)]).then(() => sleep(Math.max(0, 1100 - (performance.now() - t0)))).then(() => {
+    sp.classList.add('out'); setTimeout(() => { sp.remove(); if (window.Avatar) Avatar.hydrate(document); }, 380);
+  });
+})();
 window.__umniki = { shareInfo, claimRewards, registerReferral, refreshInvites, ensureInvite, applyRefItems, speakOn, BUILD, load, exportData, Avatar: window.Avatar, cloudErase, glossify, FAM: () => FAM, useKid, mergeFam, norm, setFam, famJSON, GENS, S: () => S, L: () => L, A, buildSet, skillPool, sigOf, Chess, mergeStates, defState, clone, SK, availSkills, render, save, setR: v => { R = v; }, unlockParent: () => { parentOK = true; }, clearPinLock: () => { pinLockUntil = 0; pinFails = 0; }, limitLeft };
 })();

@@ -213,3 +213,17 @@ h1,h2,h3,.h1,.rt,.nm,.result h1{font-family:var(--disp);font-weight:700;letter-s
 .rwdrow.done{background:#d6fbef}.rwdrow:not(.done) .avatar,.rwdrow:not(.done) .rwd{filter:grayscale(1);opacity:.5}
 .rwdrow .mascot{width:60px;height:60px;margin:0}.rwd{font-size:34px;width:60px;text-align:center}
 .rwdt{flex:1}.rwdt b{display:block;font-size:15px;font-family:var(--disp);font-weight:700}.rwdt small{color:var(--mut);font-size:13px}.rwdm{font-size:22px}
+
+/* экран загрузки: персонаж прыгает и крутится */
+.splash{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:linear-gradient(180deg,#8fd6ff 0,#cdeeff 62%,#eaf8ff 100%);transition:opacity .35s}
+.splash::after{content:"";position:absolute;left:-15%;right:-15%;bottom:-90px;height:190px;border-top:var(--edge);border-radius:50% 50% 0 0;background:linear-gradient(#7fe08a,#52c870)}
+.splash.out{opacity:0;pointer-events:none}
+.splash-av{width:190px;height:190px;z-index:1;display:grid;place-items:center;font-size:110px}
+.splash-av>.hat{position:absolute;top:-4%;left:50%;transform:translateX(-50%);font-size:60px}
+.splash-av:not(.on3d)>.pet{display:block;animation:splashjump 1.25s cubic-bezier(.3,.7,.4,1) infinite}
+.splash-title{font-family:var(--disp);font-weight:800;font-size:34px;color:var(--ink);z-index:1;letter-spacing:-.01em}
+.splash-dots{display:flex;gap:8px;z-index:1;margin-top:2px}.splash-dots i{width:12px;height:12px;border-radius:50%;background:var(--ink);animation:dots 1s ease-in-out infinite}
+.splash-dots i:nth-child(2){animation-delay:.15s}.splash-dots i:nth-child(3){animation-delay:.3s}
+@keyframes splashjump{0%{transform:translateY(0) rotate(0) scale(1.1,.9)}15%{transform:translateY(0) rotate(0) scale(.95,1.05)}50%{transform:translateY(-46px) rotate(180deg) scale(1)}85%{transform:translateY(0) rotate(360deg) scale(.95,1.05)}100%{transform:translateY(0) rotate(360deg) scale(1.1,.9)}}
+@keyframes dots{0%,100%{transform:translateY(0);opacity:.4}50%{transform:translateY(-8px);opacity:1}}
+@media (prefers-reduced-motion:reduce){.splash-av:not(.on3d)>.pet,.splash-dots i{animation:none!important}}

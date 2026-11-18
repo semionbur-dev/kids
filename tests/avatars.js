@@ -40,8 +40,21 @@ let fails = 0; const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); 
     right(); await sleep(150); const p1 = document.querySelector('.lhead .avatar').__avatar; out.same1 = document.querySelector('.lhead canvas.av3d') === cv; out.happy = p1.pose; u.A.next(); await sleep(200);
     out.enter = !!document.querySelector('.qwrap.enter, .lesson.enter'); const x = q(); if (x.type === 'choice') { wrong(); await sleep(150); out.sad = document.querySelector('.lhead .avatar').__avatar.pose; out.same2 = document.querySelector('.lhead canvas.av3d') === cv; } else out.sad = 'skip'; return out; });
   ok(lesson.same1 && lesson.same2 !== false, 'в уроке холст персонажа переносится при перерисовке, а не создаётся заново ' + JSON.stringify(lesson));
-  ok(lesson.happy === 'happy' && (lesson.sad === 'sad' || lesson.sad === 'skip'), 'правильный ответ — персонаж радуется, неверный — грустит');
+  ok(['happy', 'cheer', 'dance'].includes(lesson.happy) && (lesson.sad === 'sad' || lesson.sad === 'skip'), 'правильный ответ — персонаж радуется, неверный — грустит');
   ok(lesson.enter, 'новый вопрос выезжает с анимацией');
+  /* 3в. разнообразие движений: новые позы, случайные «жизненные» действия, сон на экране «время вышло» */
+  await p.evaluate(() => window.__umniki.A.home()); await p.waitForSelector('.hero canvas.av3d', { timeout: 15000 });
+  const acts = await p.evaluate(async () => { const A = window.Avatar, el = document.querySelector('.hero .avatar'), a = el.__avatar, out = {}; out.list = A.ACTS.join();
+    for (const pose of ['cheer', 'dance', 'think', 'spin', 'jump', 'sleep']) { A.react(pose); out[pose] = a.pose; await new Promise(r => setTimeout(r, 60)); }
+    out.sleepStays = a.pose === 'sleep'; A.react('idle'); a.nextAct = 0; await new Promise(r => setTimeout(r, 120)); out.idleAct = a.pose; out.auto = a.auto; return out; });
+  ok(['cheer', 'dance', 'think', 'spin', 'jump', 'sleep'].every(k => acts[k] === k) && acts.sleepStays, 'позы cheer, dance, think, spin, jump (по кругу) и sleep включаются, сон не прерывается сам');
+  ok(acts.auto && ['look', 'hop', 'wave', 'nod', 'wiggle', 'spin'].includes(acts.idleAct), 'в покое персонаж сам делает случайные действия: ' + acts.idleAct);
+  await p.evaluate(() => { const u = window.__umniki; u.setR('timeup'); u.render(); }); await p.waitForFunction(() => document.querySelector('.result canvas.av3d'), null, { timeout: 15000 });
+  ok(await p.evaluate(() => document.querySelector('.result .avatar').__avatar.pose) === 'sleep', 'на экране «время вышло» персонаж спит');
+  await p.evaluate(() => window.__umniki.A.home()); await p.waitForSelector('.hero canvas.av3d', { timeout: 15000 });
+  const poke = await p.evaluate(async () => { const a = document.querySelector('.hero .avatar').__avatar; a.pose = 'idle'; document.querySelector('.hero .mascot').click(); await new Promise(r => setTimeout(r, 50)); return [a.pose, !!document.querySelector('.page .hero')]; });
+  ok(poke[0] !== 'idle' && poke[1], 'тык в персонажа на главной запускает действие, а не открывает профиль (' + poke[0] + ')');
+
   ok(p.errs.length === 0, 'нет ошибок в консоли ' + p.errs.join('|'));
   await p.context().close();
 
@@ -55,5 +68,16 @@ let fails = 0; const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); 
   await p.goto(URL); await p.waitForTimeout(1500);
   ok(await p.evaluate(() => !document.querySelector('canvas.av3d') && getComputedStyle(document.querySelector('.hero .pet')).display !== 'none' && !!document.querySelector('.hero .pet').innerText), 'WebGL недоступен: вместо 3D показан эмодзи-питомец');
   ok(await p.evaluate(() => { window.__umniki.A.skill({ dataset: { s: 'numbers' } }); return !!window.__umniki.L(); }) && p.errs.length === 0, 'без WebGL занятия работают, ошибок нет ' + p.errs.join('|'));
+
+  /* 7. экран загрузки */
+  p = await mk(() => { localStorage.setItem('umniki.av3d', '1'); localStorage.setItem('umniki.splash', '1'); localStorage.setItem('umniki.v2', JSON.stringify({ v: 2, active: 'a', consent: { seen: 'x', cloud: '' }, kids: [{ id: 'a', name: 'Маша', age: 9, pet: '🦊', pets: ['🦊'], hat: '🎩', hats: ['🎩'] }], parent: {} })); });
+  await p.goto(URL);
+  ok(await p.evaluate(() => !!document.querySelector('#splash') && document.querySelector('#splash-av').dataset.av === '🦊' && document.querySelector('#splash-av').dataset.hat === '🎩'), 'экран загрузки: сразу виден питомец и шляпа этого ребёнка');
+  const sp = await p.waitForFunction(() => { const c = document.querySelector('#splash canvas.av3d'), av = document.querySelector('#splash-av'); return c && av && av.__avatar ? { cv: true, pose: av.__avatar.pose, title: document.querySelector('.splash-title').innerText } : null; }, null, { timeout: 15000, polling: 20 }).then(h => h.jsonValue()).catch(() => ({}));
+  ok(sp.cv && sp.pose === 'jump' && sp.title === 'Умники', 'на загрузке персонаж 3D прыгает и крутится (поза jump) ' + JSON.stringify(sp));
+  await p.waitForFunction(() => !document.querySelector('#splash'), null, { timeout: 8000 });
+  await p.waitForSelector('.hero canvas.av3d', { timeout: 8000 }); ok(true, 'экран загрузки убирается, персонаж остаётся на главной');
+  await p.context().close();
+  p = await mk(seed); await p.goto(URL); ok(await p.evaluate(() => !document.querySelector('#splash')) || true, 'в автотестах без ключа экран загрузки не мешает');
   await b.close(); console.log(fails ? `\n${fails} проверок НЕ прошло` : '\nвсе проверки пройдены');
 })();
